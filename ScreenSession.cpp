@@ -45,7 +45,7 @@ void screenSessionInterface(ScreenSession& session) {
             std::cout << "\n\033[33mType 'exit' to return to main menu.\033[0m\n\n";
         } else {
             session.currentLine = std::min(session.totalLines, session.currentLine + 1);
-            std::cout << "Executed: " << input << "\n";
+            std::cout << "'" << input << "' command is not supported on the screen yet." "\n\n";
         }
     }
 
