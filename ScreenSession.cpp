@@ -25,11 +25,18 @@ void screenSessionInterface(ScreenSession& session) {
     std::cout << "Process Name          : " << session.name << "\n";
     std::cout << "Instruction Progress  : " << session.currentLine << " / " << session.totalLines << "\n";
     std::cout << "Created At            : " << session.timestamp << "\n";
-    std::cout << "\n\033[33mType 'exit' to return to main menu.\033[0m\n\n";
+    std::cout << "\n\033[33mType 'exit' to return to main menu.\033[0m\n";
+
+    int baseLine = 9; 
+    int currentLine = baseLine;
 
     std::string input;
     while (true) {
+        // Move to the current prompt line
+        std::cout << "\033[" << currentLine << ";1H";
         std::cout << "(" << session.name << ")> ";
+        std::cout.flush();
+
         std::getline(std::cin, input);
 
         if (input == "exit") {
@@ -42,10 +49,22 @@ void screenSessionInterface(ScreenSession& session) {
             std::cout << "Process Name          : " << session.name << "\n";
             std::cout << "Instruction Progress  : " << session.currentLine << " / " << session.totalLines << "\n";
             std::cout << "Created At            : " << session.timestamp << "\n";
-            std::cout << "\n\033[33mType 'exit' to return to main menu.\033[0m\n\n";
+            std::cout << "\n\033[33mType 'exit' to return to main menu.\033[0m\n";
+            currentLine = baseLine;
         } else {
             session.currentLine = std::min(session.totalLines, session.currentLine + 1);
-            std::cout << "'" << input << "' command is not supported on the screen yet." "\n\n";
+            // Update only the instruction progress line (line 4)
+            std::cout << "\033[4;1H\033[2K";
+            std::cout << "Instruction Progress  : " << session.currentLine << " / " << session.totalLines;
+            std::cout.flush();
+
+            // Print message below the prompt
+            std::cout << "\033[" << (currentLine + 1) << ";1H";
+            std::cout << "'" << input << "' command is not supported on the screen yet.";
+            std::cout.flush();
+
+            // Move prompt line down for next input
+            currentLine += 2;
         }
     }
 
@@ -80,3 +99,4 @@ void handleScreenCommand(const std::string& command) {
         std::cout << "Invalid screen usage. Try: screen -s <name> or screen -r <name>\n";
     }
 }
+
