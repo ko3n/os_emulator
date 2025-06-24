@@ -20,7 +20,7 @@ bool loadConfig(const std::string& filename) {
             file >> systemConfig.numCPU;
         } else if (key == "scheduler") {
             std::string sched;
-            file >> std::quoted(sched);  // reads quoted string like "rr"
+            file >> std::quoted(sched);  // Reads quoted string 
             systemConfig.scheduler = sched;
         } else if (key == "quantum-cycles") {
             file >> systemConfig.quantumCycles;

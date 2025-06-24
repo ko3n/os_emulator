@@ -26,6 +26,7 @@ void screenSessionInterface(ScreenSession& session) {
     std::cout << "Instruction Progress  : " << session.currentLine << " / " << session.totalLines << "\n";
     std::cout << "Created At            : " << session.timestamp << "\n";
     std::cout << "\n\033[33mType 'exit' to return to main menu.\033[0m\n";
+    std::cout << "\033[34mUse: 'process-smi' to print information about the process\033[0m\n\n";
 
     int baseLine = 9; 
     int currentLine = baseLine;
@@ -50,6 +51,7 @@ void screenSessionInterface(ScreenSession& session) {
             std::cout << "Instruction Progress  : " << session.currentLine << " / " << session.totalLines << "\n";
             std::cout << "Created At            : " << session.timestamp << "\n";
             std::cout << "\n\033[33mType 'exit' to return to main menu.\033[0m\n";
+            std::cout << "\033[34mUse: 'process-smi' to print information about the process\033[0m\n\n";
             currentLine = baseLine;
         } else {
             session.currentLine = std::min(session.totalLines, session.currentLine + 1);
