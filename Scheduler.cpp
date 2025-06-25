@@ -7,6 +7,7 @@
 #include <random>
 #include <algorithm>
 #include <filesystem>
+#include <ctime>
 
 // Global scheduler instance
 Scheduler globalScheduler;
@@ -115,11 +116,17 @@ void Scheduler::schedulerStop() {
 void Scheduler::addProcess(const std::string& processName) {
     std::lock_guard<std::mutex> lock(schedulerMutex);
     
-    allProcesses.emplace_back(processName, processCounter++);
+    /*allProcesses.emplace_back(processName, processCounter++);
     Process& newProcess = allProcesses.back();
     newProcess.generateRandomInstructions(systemConfig.minInstructions, systemConfig.maxInstructions);
     
-    readyQueue.push(&newProcess);
+    readyQueue.push(&newProcess);*/
+
+    auto process = std::make_unique<Process>(processName, processCounter++);
+    process->generateRandomInstructions(systemConfig.minInstructions, systemConfig.maxInstructions);
+    readyQueue.push(process.get()); // Push raw pointer to queue
+    allProcesses.push_back(std::move(process)); // Transfer ownership to vector
+    
 }
 
 void Scheduler::printScreen() {
@@ -140,24 +147,52 @@ void Scheduler::printScreen() {
         if (core.currentProcess) {
             auto process = core.currentProcess;
             auto currentTime = std::chrono::system_clock::now();
-            auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
+            /*auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
                 currentTime - process->creationTime).count();
             std::cout << "process" << std::setfill('0') << std::setw(2) << process->id 
                      << " (" << std::fixed << std::setprecision(1) << elapsed/1000.0 << "s) Core: " << core.id 
+                     << "   " << process->currentInstruction << " / " << process->instructions.size() << "\n";*/
+            auto time_t = std::chrono::system_clock::to_time_t(process->creationTime);
+            std::cout << "process" << std::setfill('0') << std::setw(2) << process->id << "   "
+                     << " (" << std::put_time(std::localtime(&time_t), "%m/%d/%Y %I:%M:%S %p") << ")   " << "Core: " << core.id 
                      << "   " << process->currentInstruction << " / " << process->instructions.size() << "\n";
         }
     }
     
     std::cout << "\nFinished processes:\n";
-    for (const auto& process : allProcesses) {
+    /*for (const auto& processPtr : allProcesses) {
+        const Process& process = *processPtr;
         if (process.isFinished) {
             auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
                 process.finishTime - process.creationTime).count();
             std::cout << "process" << std::setfill('0') << std::setw(2) << process.id 
                      << " (" << std::fixed << std::setprecision(1) << elapsed/1000.0 << "s) Finished " 
                      << std::fixed << std::setprecision(1) << elapsed/1000.0 << "s\n";
+            auto time_t = std::chrono::system_clock::to_time_t(process.finishTime);
+            std::cout << "process" << std::setfill('0') << std::setw(2) << process.id
+                    << " (" << std::put_time(std::localtime(&time_t), "%m/%d/%Y %I:%M:%S %p") << ") "
+                    << "Finished " << process.instructions.size() << " / " << process.instructions.size() << "\n";
+        }
+    }*/
+
+    std::vector<const Process*> finishedProcesses;
+    for (const auto& processPtr : allProcesses) {
+        if (processPtr->isFinished) {
+            finishedProcesses.push_back(processPtr.get());
         }
     }
+
+    std::sort(finishedProcesses.begin(), finishedProcesses.end(), [](const Process* a, const Process* b) {
+        return a->finishTime < b->finishTime;
+    });
+
+    for (const Process* process : finishedProcesses) {
+        auto time_t = std::chrono::system_clock::to_time_t(process->finishTime);
+        std::cout << "process" << std::setfill('0') << std::setw(2) << process->id << "   "
+                << " (" << std::put_time(std::localtime(&time_t), "%m/%d/%Y %I:%M:%S %p") << ")   "
+                << "Finished   " << process->instructions.size() << " / " << process->instructions.size() << "\n";
+    }
+
     
     std::cout << "----------------------------------------\n";
 }
@@ -165,7 +200,8 @@ void Scheduler::printScreen() {
 void Scheduler::screenProcess(const std::string& processName) {
     std::lock_guard<std::mutex> lock(schedulerMutex);
     
-    for (const auto& process : allProcesses) {
+    for (const auto& processPtr : allProcesses) {
+        const Process& process = *processPtr;
         if (process.name == processName) {
             std::cout << "\nProcess name: " << process.name << "\n";
             std::cout << "ID: " << process.id << "\n";
@@ -208,20 +244,42 @@ void Scheduler::reportUtil() {
                 auto currentTime = std::chrono::system_clock::now();
                 auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
                     currentTime - process->creationTime).count();
-                report << "process" << std::setfill('0') << std::setw(2) << process->id 
-                      << " (" << elapsed/1000.0 << "s) Core: " << core.id 
-                      << " " << process->currentInstruction << " / " << process->instructions.size() << "\n";
+                report << "process" << std::setfill('0') << std::setw(2) << process->id << "   " 
+                      << " (" << elapsed/1000.0 << "s)   " << "Core: " << core.id 
+                      << "   " << process->currentInstruction << " / " << process->instructions.size() << "\n";
             }
         }
         
         report << "\nFinished processes:\n";
-        for (const auto& process : allProcesses) {
+        /*for (const auto& processPtr : allProcesses) {
+            const Process& process = *processPtr;
             if (process.isFinished) {
                 auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
                     process.finishTime - process.creationTime).count();
                 report << "process" << std::setfill('0') << std::setw(2) << process.id 
                       << " (" << elapsed/1000.0 << "s) Finished " << elapsed/1000.0 << "s\n";
+                auto time_t = std::chrono::system_clock::to_time_t(process.finishTime);
+                report << "process" << std::setfill('0') << std::setw(2) << process.id 
+                    << " (" << std::put_time(std::localtime(&time_t), "%m/%d/%Y %I:%M:%S %p") << ") "
+                    << "Finished " << process.instructions.size() << " / " << process.instructions.size() << "\n";
             }
+        }*/
+       std::vector<const Process*> finishedProcesses;
+        for (const auto& processPtr : allProcesses) {
+            if (processPtr->isFinished) {
+                finishedProcesses.push_back(processPtr.get());
+            }
+        }
+
+        std::sort(finishedProcesses.begin(), finishedProcesses.end(), [](const Process* a, const Process* b) {
+            return a->finishTime < b->finishTime;
+        });
+
+        for (const Process* process : finishedProcesses) {
+            auto time_t = std::chrono::system_clock::to_time_t(process->finishTime);
+            report << "process" << std::setfill('0') << std::setw(2) << process->id << "   " 
+                << " (" << std::put_time(std::localtime(&time_t), "%m/%d/%Y %I:%M:%S %p") << ")   "
+                << "Finished   " << process->instructions.size() << " / " << process->instructions.size() << "\n";
         }
         
         report.close();
@@ -234,9 +292,9 @@ void Scheduler::reportUtil() {
 Process* Scheduler::getProcess(const std::string& processName) {
     std::lock_guard<std::mutex> lock(schedulerMutex);
     
-    for (auto& process : allProcesses) {
-        if (process.name == processName) {
-            return &process;
+    for (auto& processPtr : allProcesses) {
+        if (processPtr->name == processName) {
+            return processPtr.get();
         }
     }
     return nullptr;
@@ -280,7 +338,8 @@ void Scheduler::schedulingLoop() {
             bool hasRunningProcesses = false;
             
             // Check if any process is still running or in ready queue
-            for (const auto& process : allProcesses) {
+            for (const auto& processPtr : allProcesses) {
+                const Process& process = *processPtr;
                 if (!process.isFinished) {
                     allFinished = false;
                     break;
@@ -422,14 +481,34 @@ void Scheduler::executeInstruction(CPUCore& core) {
 }
 
 void Scheduler::processGenerationLoop() {
-    int processId = 0;
-    while (isRunning) {
+    /*int processId = 0;
+    const int maxProcesses = 8;
+
+    while (isRunning && processId < maxProcesses) {
         std::this_thread::sleep_for(std::chrono::seconds(systemConfig.batchProcessFreq));
         
-        if (isRunning) {
-            std::string processName = "screen_" + std::to_string(processId++);
+        if (isRunning && processId < maxProcesses) {
+            std::string processName = "process" + std::to_string(processId++);
             addProcess(processName);
         }
+    }*/
+    
+    /*while (isRunning && processCounter < 8) {
+        std::this_thread::sleep_for(std::chrono::seconds(systemConfig.batchProcessFreq));
+
+        if (isRunning && processCounter < 8) {
+            std::string processName = "process" + std::to_string(processCounter);
+            addProcess(processName);
+        }
+    }*/
+
+    while (isRunning && processCounter < 8) {
+        if (isRunning && processCounter < 8) {
+            std::string processName = "process" + std::to_string(processCounter);
+            addProcess(processName);
+        }
+
+        std::this_thread::sleep_for(std::chrono::seconds(systemConfig.batchProcessFreq));
     }
 }
 

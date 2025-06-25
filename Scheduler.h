@@ -8,6 +8,7 @@
 #include <mutex>
 #include <thread>
 #include <chrono>
+#include <memory>
 
 // Process instruction types
 enum class InstructionType {
@@ -75,7 +76,8 @@ class Scheduler {
 private:
     std::vector<CPUCore> cores;
     std::queue<Process*> readyQueue;
-    std::vector<Process> allProcesses;
+    // std::vector<Process> allProcesses;
+    std::vector<std::unique_ptr<Process>> allProcesses;
     std::mutex schedulerMutex;
     bool isInitialized;
     bool isRunning;
@@ -108,7 +110,9 @@ public:
     
     // Get process information for screen sessions
     Process* getProcess(const std::string& processName);
-    std::vector<Process>& getAllProcesses() { return allProcesses; }
+    //std::vector<Process>& getAllProcesses() { return allProcesses; }
+    std::vector<std::unique_ptr<Process>>& getAllProcesses() { return allProcesses; }
+
 };
 
 // Global scheduler instance

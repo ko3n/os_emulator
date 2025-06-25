@@ -24,7 +24,7 @@ void printHeader() {
     std::cout << "\033[34m     'screen -s <name>' to start a screen\033[0m\n";
     std::cout << "\033[34m     'screen -r <name>' to resume a screen\033[0m\n";
     std::cout << "\033[34m     'screen -ls' to list all processes\033[0m\n";
-    std::cout << "\033[34m     'scheduler-start' to start the scheduler\033[0m\n";
+    std::cout << "\033[34m     'scheduler-test' to start the scheduler\033[0m\n";
     std::cout << "\033[34m     'scheduler-stop' to stop the scheduler\033[0m\n";
     std::cout << "\033[34m     'report-util' to generate CPU utilization report\033[0m\n";
 }
@@ -56,7 +56,7 @@ void initialize() {
     }
 }
 
-void schedulerStart() {
+void schedulerTest() {
     if (!isInitialized) {
         std::cout << "Please run 'initialize' command first.\n";
         return;
@@ -105,9 +105,9 @@ int main() {
             std::cout << "\n";
             std::cout << "Please run 'initialize' command first.\n";
         }
-        else if (userInput == "scheduler-start") {
+        else if (userInput == "scheduler-test") {
             std::cout << "\n";
-            schedulerStart();
+            schedulerTest();
         }
         else if (userInput == "scheduler-stop") {
             std::cout << "\n";
