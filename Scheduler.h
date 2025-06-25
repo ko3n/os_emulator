@@ -84,7 +84,6 @@ private:
     std::chrono::system_clock::time_point startTime;
     int cpuTicks;
     
-    // Private methods
     void schedulingLoop();
     void roundRobinSchedule();
     void executeInstruction(CPUCore& core);
@@ -93,7 +92,6 @@ private:
 public:
     Scheduler();
     
-    // Public methods
     bool initialize();
     void schedulerStart();
     void schedulerStop();

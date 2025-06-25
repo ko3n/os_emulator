@@ -120,7 +120,6 @@ void Scheduler::addProcess(const std::string& processName) {
     newProcess.generateRandomInstructions(systemConfig.minInstructions, systemConfig.maxInstructions);
     
     readyQueue.push(&newProcess);
-    // Process added silently - no console output
 }
 
 void Scheduler::printScreen() {
@@ -263,6 +262,12 @@ void Scheduler::schedulingLoop() {
         if (systemConfig.scheduler == "rr") {
             roundRobinSchedule();
         }
+        /*
+        // First Come First Server scheduling
+        else if (systemConfig.scheduler == "fcfc") {
+            fcfsSchedule();
+        }
+        */
         
         // Execute instructions on running cores
         for (auto& core : cores) {
