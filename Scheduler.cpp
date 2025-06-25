@@ -262,12 +262,10 @@ void Scheduler::schedulingLoop() {
         if (systemConfig.scheduler == "rr") {
             roundRobinSchedule();
         }
-        /*
         // First Come First Serve scheduling
         else if (systemConfig.scheduler == "fcfs") {
             fcfsSchedule();
         }
-        */
         
         // Execute instructions on running cores
         for (auto& core : cores) {
@@ -342,6 +340,22 @@ void Scheduler::roundRobinSchedule() {
         
         if (core.currentProcess) {
             core.currentQuantum++;
+        }
+    }
+}
+
+void Scheduler::fcfsSchedule(){
+    for(auto &core : cores){
+        if(!core.currentProcess && !readyQueue.empty()){
+            Process* nextProc = readyQueue.front();
+            readyQueue.pop();
+
+            nextProc->state = ProcessState::RUNNING;
+            nextProc->coreId = core.id;
+
+            core.currentProcess = nextProc;
+            core.isRunning = true;
+            //No quantum bookkeeping needed for FCFS
         }
     }
 }

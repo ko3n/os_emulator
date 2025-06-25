@@ -86,6 +86,7 @@ private:
     
     void schedulingLoop();
     void roundRobinSchedule();
+    void fcfsSchedule();
     void executeInstruction(CPUCore& core);
     void processGenerationLoop();
     
