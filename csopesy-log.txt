@@ -1,0 +1,18 @@
+CPU Utilization Report
+CPU utilization: 50%
+Cores used: 2
+Cores available: 2
+
+Running processes:
+process15 (0.745s) Core: 0 4 / 12
+process14 (1.754s) Core: 2 9 / 11
+
+Finished processes:
+process04 (2.789s) Finished 2.789s
+process05 (2.338s) Finished 2.338s
+process08 (2.435s) Finished 2.435s
+process09 (5.276s) Finished 5.276s
+process10 (2.09s) Finished 2.09s
+process11 (2.699s) Finished 2.699s
+process12 (3.229s) Finished 3.229s
+process13 (1.899s) Finished 1.899s

@@ -15,9 +15,9 @@ struct ScreenSession {
 std::string getCurrentTimestamp();
 void screenSessionInterface(ScreenSession& session);
 void handleScreenCommand(const std::string& command);
-void clearScreen(); 
+void clearScreenSession(); 
 
 // Global variable declaration
 extern std::map<std::string, ScreenSession> screens;
 
-#endif 
+#endif
