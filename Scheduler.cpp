@@ -263,8 +263,8 @@ void Scheduler::schedulingLoop() {
             roundRobinSchedule();
         }
         /*
-        // First Come First Server scheduling
-        else if (systemConfig.scheduler == "fcfc") {
+        // First Come First Serve scheduling
+        else if (systemConfig.scheduler == "fcfs") {
             fcfsSchedule();
         }
         */
