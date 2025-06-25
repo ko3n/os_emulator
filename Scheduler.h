@@ -96,7 +96,7 @@ public:
     Scheduler();
     
     bool initialize();
-    void schedulerStart();
+    void schedulerTest();
     void schedulerStop();
     void addProcess(const std::string& processName);
     void printScreen();

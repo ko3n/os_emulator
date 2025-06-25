@@ -61,7 +61,7 @@ void schedulerTest() {
         std::cout << "Please run 'initialize' command first.\n";
         return;
     }
-    globalScheduler.schedulerStart();
+    globalScheduler.schedulerTest();
 }
 
 void schedulerStop() {

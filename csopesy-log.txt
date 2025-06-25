@@ -6,11 +6,11 @@ Cores available: 4
 Running processes:
 
 Finished processes:
-process00   (06/25/2025 09:30:45 PM)  Finished  11 / 11
-process01   (06/25/2025 09:30:46 PM)  Finished  16 / 16
-process03   (06/25/2025 09:30:48 PM)  Finished  14 / 14
-process02   (06/25/2025 09:30:49 PM)  Finished  20 / 20
-process05   (06/25/2025 09:30:49 PM)  Finished  16 / 16
-process04   (06/25/2025 09:30:49 PM)  Finished  17 / 17
-process06   (06/25/2025 09:30:50 PM)  Finished  11 / 11
-process07   (06/25/2025 09:30:52 PM)  Finished  10 / 10
+process1    (06/26/2025 01:19:39 AM)    Finished    1140 / 1140
+process5    (06/26/2025 01:20:10 AM)    Finished    1205 / 1205
+process6    (06/26/2025 01:20:30 AM)    Finished    1231 / 1231
+myprocess   (06/26/2025 01:21:52 AM)    Finished    1560 / 1560
+process4    (06/26/2025 01:22:13 AM)    Finished    1585 / 1585
+process2    (06/26/2025 01:22:24 AM)    Finished    1713 / 1713
+process0    (06/26/2025 01:22:26 AM)    Finished    1708 / 1708
+process3    (06/26/2025 01:23:05 AM)    Finished    1963 / 1963

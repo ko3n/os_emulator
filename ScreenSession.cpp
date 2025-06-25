@@ -6,6 +6,9 @@
 #include <sstream>
 #include <algorithm>
 
+// Forward declaration of clearScreen from main.cpp
+extern void clearScreen();
+
 std::map<std::string, ScreenSession> screens;
 
 std::string getCurrentTimestamp() {
@@ -17,10 +20,6 @@ std::string getCurrentTimestamp() {
     return oss.str();
 }
 
-void clearScreenSession() {
-    std::system("cls");
-}
-
 void screenSessionInterface(ScreenSession& session) {
     std::system("cls"); 
 
@@ -28,32 +27,23 @@ void screenSessionInterface(ScreenSession& session) {
     std::cout << "\n";
     std::cout << "\033[31m=========== SCREEN : " << session.name << " ===========\033[0m\n";
     
-    // Check if this is a real process from the scheduler
     Process* realProcess = globalScheduler.getProcess(session.name);
-    if (realProcess) {
-        std::cout << "Process Name          : " << realProcess->name << "\n";
-        std::cout << "Instruction Progress  : " << realProcess->currentInstruction << " / " << realProcess->instructions.size() << "\n";
-        
-        // Format creation time
-        auto time_t = std::chrono::system_clock::to_time_t(realProcess->creationTime);
-        std::cout << "Created At            : " << std::put_time(std::localtime(&time_t), "%m/%d/%Y, %I:%M:%S %p") << "\n";
-        
-        // Show status
-        if (realProcess->isFinished) {
-            std::cout << "Status                : FINISHED\n";
-        } else {
-            std::string status = (realProcess->state == ProcessState::RUNNING) ? "RUNNING" : "READY";
-            std::cout << "Status                : " << status << "\n";
-            if (realProcess->coreId >= 0) {
-                std::cout << "Core                  : " << realProcess->coreId << "\n";
-            }
-        }
+    std::cout << "Process Name          : " << realProcess->name << "\n";
+    std::cout << "Instruction Progress  : " << realProcess->currentInstruction << " / " << realProcess->instructions.size() << "\n";
+    
+    // Format creation time
+    auto time_t = std::chrono::system_clock::to_time_t(realProcess->creationTime);
+    std::cout << "Created At            : " << std::put_time(std::localtime(&time_t), "%m/%d/%Y, %I:%M:%S %p") << "\n";
+    
+    // Show status
+    if (realProcess->isFinished) {
+        std::cout << "Status                : FINISHED\n";
     } else {
-        // Fallback to session data for manually created screens
-        std::cout << "Process Name          : " << session.name << "\n";
-        std::cout << "Instruction Progress  : " << session.currentLine << " / " << session.totalLines << "\n";
-        std::cout << "Created At            : " << session.timestamp << "\n";
-        std::cout << "Status                : MANUAL SESSION\n";
+        std::string status = (realProcess->state == ProcessState::RUNNING) ? "RUNNING" : "READY";
+        std::cout << "Status                : " << status << "\n";
+        if (realProcess->coreId >= 0) {
+            std::cout << "Core                  : " << realProcess->coreId << "\n";
+        }
     }
     
     std::cout << "\n\033[33mType 'exit' to return to main menu.\033[0m\n";
@@ -81,32 +71,26 @@ void screenSessionInterface(ScreenSession& session) {
             
             // Refresh process information
             Process* updatedProcess = globalScheduler.getProcess(session.name);
-            if (updatedProcess) {
-                std::cout << "Process Name          : " << updatedProcess->name << "\n";
-                std::cout << "Instruction Progress  : " << updatedProcess->currentInstruction << " / " << updatedProcess->instructions.size() << "\n";
-                
-                auto time_t = std::chrono::system_clock::to_time_t(updatedProcess->creationTime);
-                std::cout << "Created At            : " << std::put_time(std::localtime(&time_t), "%m/%d/%Y, %I:%M:%S %p") << "\n";
-                
-                if (updatedProcess->isFinished) {
-                    std::cout << "Status                : FINISHED\n";
-                } else {
-                    std::string status = (updatedProcess->state == ProcessState::RUNNING) ? "RUNNING" : "READY";
-                    std::cout << "Status                : " << status << "\n";
-                    if (updatedProcess->coreId >= 0) {
-                        std::cout << "Core                  : " << updatedProcess->coreId << "\n";
-                    }
-                }
-            } else {
-                std::cout << "Process Name          : " << session.name << "\n";
-                std::cout << "Instruction Progress  : " << session.currentLine << " / " << session.totalLines << "\n";
-                std::cout << "Created At            : " << session.timestamp << "\n";
-                std::cout << "Status                : MANUAL SESSION\n";
-            }
+            std::cout << "Process Name          : " << updatedProcess->name << "\n";
+            std::cout << "Instruction Progress  : " << updatedProcess->currentInstruction << " / " << updatedProcess->instructions.size() << "\n";
             
+            auto time_t = std::chrono::system_clock::to_time_t(updatedProcess->creationTime);
+            std::cout << "Created At            : " << std::put_time(std::localtime(&time_t), "%m/%d/%Y, %I:%M:%S %p") << "\n";
+            
+            if (updatedProcess->isFinished) {
+                std::cout << "Status                : FINISHED\n";
+            } else {
+                std::string status = (updatedProcess->state == ProcessState::RUNNING) ? "RUNNING" : "READY";
+                std::cout << "Status                : " << status << "\n";
+                if (updatedProcess->coreId >= 0) {
+                    std::cout << "Core                  : " << updatedProcess->coreId << "\n";
+                }
+            }
             std::cout << "\n\033[33mType 'exit' to return to main menu.\033[0m\n";
             std::cout << "\033[34mUse: 'process-smi' to print information about the process\033[0m\n\n";
+
             currentLine = baseLine;
+            
         } else if (input == "process-smi") {
             // Show detailed process information
             Process* smiProcess = globalScheduler.getProcess(session.name);
@@ -116,28 +100,22 @@ void screenSessionInterface(ScreenSession& session) {
                 std::cout << "\033[" << (currentLine + 2) << ";1H";
                 std::cout << "Process ID: " << smiProcess->id;
                 std::cout << "\033[" << (currentLine + 3) << ";1H";
-                std::cout << "Current Instruction: " << smiProcess->currentInstruction << " / " << smiProcess->instructions.size();
-                std::cout << "\033[" << (currentLine + 4) << ";1H";
-                std::cout << "Memory Variables: " << smiProcess->variables.size();
-                std::cout << "\033[" << (currentLine + 5) << ";1H";
+                std::cout << "Logs:";
+                
                 if (smiProcess->isFinished) {
-                    auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
-                        smiProcess->finishTime - smiProcess->creationTime).count();
-                    std::cout << "Runtime: " << std::fixed << std::setprecision(1) << elapsed/1000.0 << "s (FINISHED)";
-                } else {
-                    auto currentTime = std::chrono::system_clock::now();
-                    auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
-                        currentTime - smiProcess->creationTime).count();
-                    std::cout << "Runtime: " << std::fixed << std::setprecision(1) << elapsed/1000.0 << "s";
+                    std::cout << "\033[" << currentLine << ";1H";
+                    std::cout << "Finished!";
+                    currentLine++;
                 }
-                currentLine += 6;
+                
+                // Add some spacing before next prompt
+                currentLine += 2;
             } else {
                 std::cout << "\033[" << (currentLine + 1) << ";1H";
                 std::cout << "No scheduler process found for " << session.name;
-                currentLine += 2;
+                currentLine += 3;
             }
         } else {
-            // For manual sessions, simulate instruction progress
             if (!globalScheduler.getProcess(session.name)) {
                 session.currentLine = std::min(session.totalLines, session.currentLine + 1);
                 // Update only the instruction progress line (line 4)
@@ -156,7 +134,7 @@ void screenSessionInterface(ScreenSession& session) {
         }
     }
 
-    clearScreenSession();
+    clearScreen();
 }
 
 void handleScreenCommand(const std::string& command) {
@@ -185,15 +163,24 @@ void handleScreenCommand(const std::string& command) {
         } else if (screens.count(name)) {
             std::cout << "\nScreen session '" << name << "' already exists.\n";
         } else {
-            // Create manual session
-            ScreenSession newSession = {
-                name,
-                1, // current line
-                100, // total lines
-                getCurrentTimestamp()
-            };
-            screens[name] = newSession;
-            screenSessionInterface(screens[name]);
+            // Create manual session AND add to scheduler
+            // First add the process to the scheduler
+            globalScheduler.addProcess(name);
+            
+            // Then create the screen session
+            Process* newProcess = globalScheduler.getProcess(name);
+            if (newProcess) {
+                ScreenSession newSession = {
+                    name,
+                    newProcess->currentInstruction,
+                    (int)newProcess->instructions.size(),
+                    getCurrentTimestamp()
+                };
+                screens[name] = newSession;
+                screenSessionInterface(screens[name]);
+            } else {
+                std::cout << "\nFailed to create process in scheduler.\n";
+            }
         }
     } else if (flag == "-r") {
         if (!screens.count(name) && !globalScheduler.getProcess(name)) {
