@@ -45,11 +45,8 @@ void screenSessionInterface(ScreenSession& session) {
             std::cout << "Core                  : " << realProcess->coreId << "\n";
         }
     }
-    
-    /*std::cout << "\n\033[33mType 'exit' to return to main menu.\033[0m\n";
-    std::cout << "\033[34mUse: 'process-smi' to print information about the process\033[0m\n\n";*/
 
-    int baseLine = 10; 
+    int baseLine = 9; 
     int currentLine = baseLine;
 
     std::string input;
