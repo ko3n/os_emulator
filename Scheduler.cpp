@@ -142,10 +142,6 @@ void Scheduler::printScreen() {
             auto process = core.currentProcess;
             auto currentTime = std::chrono::system_clock::now();
             auto time_t = std::chrono::system_clock::to_time_t(process->creationTime);
-
-            /*std::cout << process->name << "   "
-                     << " (" << std::put_time(std::localtime(&time_t), "%m/%d/%Y %I:%M:%S %p") << ")   " << "Core: " << core.id 
-                     << "   " << process->currentInstruction << " / " << process->instructions.size() << "\n";*/
             
             // Format timestamp into string
             std::ostringstream timeStream;
@@ -168,20 +164,6 @@ void Scheduler::printScreen() {
     }
     
     std::cout << "\nFinished processes:\n";
-    /*for (const auto& processPtr : allProcesses) {
-        const Process& process = *processPtr;
-        if (process.isFinished) {
-            auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
-                process.finishTime - process.creationTime).count();
-            std::cout << "process" << std::setfill('0') << std::setw(2) << process.id 
-                     << " (" << std::fixed << std::setprecision(1) << elapsed/1000.0 << "s) Finished " 
-                     << std::fixed << std::setprecision(1) << elapsed/1000.0 << "s\n";
-            auto time_t = std::chrono::system_clock::to_time_t(process.finishTime);
-            std::cout << "process" << std::setfill('0') << std::setw(2) << process.id
-                    << " (" << std::put_time(std::localtime(&time_t), "%m/%d/%Y %I:%M:%S %p") << ") "
-                    << "Finished " << process.instructions.size() << " / " << process.instructions.size() << "\n";
-        }
-    }*/
 
     std::vector<const Process*> finishedProcesses;
     for (const auto& processPtr : allProcesses) {
@@ -196,10 +178,6 @@ void Scheduler::printScreen() {
 
     for (const Process* process : finishedProcesses) {
         auto time_t = std::chrono::system_clock::to_time_t(process->finishTime);
-
-        /*std::cout << "process" << std::setfill('0') << std::setw(2) << process->id << "   "
-                << " (" << std::put_time(std::localtime(&time_t), "%m/%d/%Y %I:%M:%S %p") << ")   "
-                << "Finished   " << process->instructions.size() << " / " << process->instructions.size() << "\n";*/
 
         // Format timestamp into string 
         std::ostringstream timeStream;
@@ -245,20 +223,8 @@ void Scheduler::reportUtil() {
         }
         
         report << "\nFinished processes:\n";
-        /*for (const auto& processPtr : allProcesses) {
-            const Process& process = *processPtr;
-            if (process.isFinished) {
-                auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
-                    process.finishTime - process.creationTime).count();
-                report << "process" << std::setfill('0') << std::setw(2) << process.id 
-                      << " (" << elapsed/1000.0 << "s) Finished " << elapsed/1000.0 << "s\n";
-                auto time_t = std::chrono::system_clock::to_time_t(process.finishTime);
-                report << "process" << std::setfill('0') << std::setw(2) << process.id 
-                    << " (" << std::put_time(std::localtime(&time_t), "%m/%d/%Y %I:%M:%S %p") << ") "
-                    << "Finished " << process.instructions.size() << " / " << process.instructions.size() << "\n";
-            }
-        }*/
-       std::vector<const Process*> finishedProcesses;
+
+        std::vector<const Process*> finishedProcesses;
         for (const auto& processPtr : allProcesses) {
             if (processPtr->isFinished) {
                 finishedProcesses.push_back(processPtr.get());

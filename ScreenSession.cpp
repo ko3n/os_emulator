@@ -163,7 +163,7 @@ void handleScreenCommand(const std::string& command) {
         } else if (screens.count(name)) {
             std::cout << "\nScreen session '" << name << "' already exists.\n";
         } else {
-            // Create manual session AND add to scheduler
+            // Create manual session and add to scheduler
             // First add the process to the scheduler
             globalScheduler.addProcess(name);
             
