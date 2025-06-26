@@ -46,8 +46,8 @@ void screenSessionInterface(ScreenSession& session) {
         }
     }
     
-    std::cout << "\n\033[33mType 'exit' to return to main menu.\033[0m\n";
-    std::cout << "\033[34mUse: 'process-smi' to print information about the process\033[0m\n\n";
+    /*std::cout << "\n\033[33mType 'exit' to return to main menu.\033[0m\n";
+    std::cout << "\033[34mUse: 'process-smi' to print information about the process\033[0m\n\n";*/
 
     int baseLine = 10; 
     int currentLine = baseLine;
@@ -86,8 +86,6 @@ void screenSessionInterface(ScreenSession& session) {
                     std::cout << "Core                  : " << updatedProcess->coreId << "\n";
                 }
             }
-            std::cout << "\n\033[33mType 'exit' to return to main menu.\033[0m\n";
-            std::cout << "\033[34mUse: 'process-smi' to print information about the process\033[0m\n\n";
 
             currentLine = baseLine;
             
@@ -95,11 +93,11 @@ void screenSessionInterface(ScreenSession& session) {
             // Show detailed process information
             Process* smiProcess = globalScheduler.getProcess(session.name);
             if (smiProcess) {
-                std::cout << "\033[" << (currentLine + 1) << ";1H";
-                std::cout << "=== Process SMI for " << smiProcess->name << " ===";
                 std::cout << "\033[" << (currentLine + 2) << ";1H";
-                std::cout << "Process ID: " << smiProcess->id;
+                std::cout << "=== Process SMI for " << smiProcess->name << " ===";
                 std::cout << "\033[" << (currentLine + 3) << ";1H";
+                std::cout << "Process ID: " << smiProcess->id;
+                std::cout << "\033[" << (currentLine + 4) << ";1H";
                 std::cout << "Logs:";
                 
                 if (smiProcess->isFinished) {
@@ -108,8 +106,8 @@ void screenSessionInterface(ScreenSession& session) {
                     currentLine++;
                 }
                 
-                // Add some spacing before next prompt
-                currentLine += 2;
+                // Move prompt line down for next input
+                currentLine += 6;
             } else {
                 std::cout << "\033[" << (currentLine + 1) << ";1H";
                 std::cout << "No scheduler process found for " << session.name;
@@ -125,12 +123,12 @@ void screenSessionInterface(ScreenSession& session) {
             }
 
             // Print message below the prompt
-            std::cout << "\033[" << (currentLine + 1) << ";1H";
+            std::cout << "\033[" << (currentLine + 2) << ";1H";
             std::cout << "'" << input << "' command is not supported on the screen yet.";
             std::cout.flush();
 
             // Move prompt line down for next input
-            currentLine += 2;
+            currentLine += 4;
         }
     }
 
