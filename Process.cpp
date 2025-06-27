@@ -49,7 +49,7 @@ void Process::generateRandomInstructions(int minIns, int maxIns) {
                     Instruction forInstr(InstructionType::FOR_START, "", "", iterations);
                     instructions.push_back(forInstr);
                     instructions.emplace_back(InstructionType::PRINT, 
-                        "\"Loop iteration from " + name + "\"");
+                        "\"Hello world from " + name + "!\"");
                     instructions.emplace_back(InstructionType::FOR_END);
                     i += 2;
                 }
