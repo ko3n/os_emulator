@@ -9,6 +9,7 @@
 #include <thread>
 #include <chrono>
 #include <memory>
+#include <optional>
 
 // Process instruction types
 enum class InstructionType {
@@ -29,6 +30,7 @@ struct Instruction {
     int value;
     std::vector<Instruction> forBody;
     int forIterations;
+    std::optional<std::chrono::system_clock::time_point> executedAt;
     
     Instruction(InstructionType t, const std::string& m = "", const std::string& var = "", int val = 0);
 };

@@ -14,7 +14,7 @@ Scheduler globalScheduler;
 
 // Instruction implementation
 Instruction::Instruction(InstructionType t, const std::string& m, const std::string& var, int val) 
-    : type(t), msg(m), varName(var), value(val), forIterations(0) {}
+    : type(t), msg(m), varName(var), value(val), forIterations(0), executedAt(std::nullopt) {}
 
 // Process implementation
 Process::Process(const std::string& processName, int processId) 
@@ -23,6 +23,7 @@ Process::Process(const std::string& processName, int processId)
     creationTime = std::chrono::system_clock::now();
 }
 
+// Instruction generation
 void Process::generateRandomInstructions(int minIns, int maxIns) {
     std::random_device rd;
     std::mt19937 gen(rd());
@@ -400,7 +401,9 @@ void Scheduler::executeInstruction(CPUCore& core) {
         return;
     }
     
-    const Instruction& instr = process->instructions[process->currentInstruction];
+    // const Instruction& instr = process->instructions[process->currentInstruction];
+    Instruction& instr = process->instructions[process->currentInstruction];
+    instr.executedAt = std::chrono::system_clock::now();
     
     switch (instr.type) {
         case InstructionType::PRINT:
