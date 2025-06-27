@@ -5,7 +5,9 @@
 #include <vector>
 #include <map>
 #include <chrono>
+#include <optional>
 
+// Process instruction types
 enum class InstructionType {
     PRINT,
     DECLARE,
@@ -16,6 +18,7 @@ enum class InstructionType {
     FOR_END
 };
 
+// Process instruction structure
 struct Instruction {
     InstructionType type;
     std::string msg;
@@ -23,16 +26,19 @@ struct Instruction {
     int value;
     std::vector<Instruction> forBody;
     int forIterations;
+    std::optional<std::chrono::system_clock::time_point> executedAt;
     
     Instruction(InstructionType t, const std::string& m = "", const std::string& var = "", int val = 0);
 };
 
+// Process states
 enum class ProcessState {
     READY,
     RUNNING,
     FINISHED
 };
 
+// Process class
 class Process {
 public:
     std::string name;

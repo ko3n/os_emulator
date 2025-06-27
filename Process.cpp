@@ -1,9 +1,11 @@
 #include "Process.h"
 #include <random>
 
+// Instruction implementation
 Instruction::Instruction(InstructionType t, const std::string& m, const std::string& var, int val) 
-    : type(t), msg(m), varName(var), value(val), forIterations(0) {}
+    : type(t), msg(m), varName(var), value(val), forIterations(0), executedAt(std::nullopt) {}
 
+// Process implementation
 Process::Process(const std::string& processName, int processId) 
     : name(processName), id(processId), state(ProcessState::READY), 
       currentInstruction(0), coreId(-1), isFinished(false) {
