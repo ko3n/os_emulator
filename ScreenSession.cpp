@@ -90,24 +90,48 @@ void screenSessionInterface(ScreenSession& session) {
             // Show detailed process information
             Process* smiProcess = globalScheduler.getProcess(session.name);
             if (smiProcess) {
-                std::cout << "\033[" << (currentLine + 2) << ";1H";
-                std::cout << "=== Process SMI for " << smiProcess->name << " ===";
-                std::cout << "\033[" << (currentLine + 3) << ";1H";
-                std::cout << "Process ID: " << smiProcess->id;
-                std::cout << "\033[" << (currentLine + 4) << ";1H";
-                std::cout << "Logs:";
+                int printedLines = 0;
+
+                currentLine += 2;
+
+                auto printLine = [&](const std::string& text) {
+                    std::cout << "\033[" << (currentLine + printedLines) << ";1H\033[2K";
+                    std::cout << text << std::endl;
+                    ++printedLines;
+                };
+
+                printLine("Process name: " + smiProcess->name);
+                printLine("ID: " + std::to_string(smiProcess->id));
+                printLine("Logs:");
                 
-                if (smiProcess->isFinished) {
-                    std::cout << "\033[" << currentLine << ";1H";
-                    std::cout << "Finished!";
-                    currentLine++;
+            
+                for (int i = 0; i < smiProcess->currentInstruction && i < smiProcess->instructions.size(); ++i) {
+                    const Instruction& instr = smiProcess->instructions[i];
+                    if (instr.type == InstructionType::PRINT) {
+                        std::time_t now = std::time(nullptr);
+                        std::tm* local = std::localtime(&now);
+                        std::ostringstream timestamp;
+                        timestamp << "(" << std::put_time(local, "%m/%d/%Y %I:%M:%S%p") << ")";
+                        printLine(timestamp.str() + " Core:" + std::to_string(smiProcess->coreId) + " " + instr.msg);
+                    }
                 }
                 
-                // Move prompt line down for next input
-                currentLine += 6;
+                printLine("");
+
+                //current instruction line & total lines of code
+                printLine("Current instruction line: " + std::to_string(smiProcess->currentInstruction));
+                printLine("Lines of code: " + std::to_string(smiProcess->instructions.size()));
+
+                if (smiProcess->isFinished) {
+                    printLine("Finished!");
+                }
+                
+                printLine("");
+                currentLine += printedLines + 2;
+
             } else {
-                std::cout << "\033[" << (currentLine + 1) << ";1H";
-                std::cout << "No scheduler process found for " << session.name;
+                std::cout << "\033[" << (currentLine + 1) << ";1H\033[2K";
+                std::cout << "No scheduler process found for " << session.name << std::endl;
                 currentLine += 3;
             }
         } else {
