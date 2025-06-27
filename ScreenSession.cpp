@@ -162,32 +162,22 @@ void handleScreenCommand(const std::string& command) {
     iss >> cmd >> flag >> name;
     
     if (flag == "-s") {
-        // Check if this process exists in the scheduler first
-        Process* schedulerProcess = globalScheduler.getProcess(name);
-        
-        if (schedulerProcess) {
-            // Create session for existing scheduler process
+            // Check if the process already exists in the scheduler
+            if (globalScheduler.getProcess(name)) {
+                std::cout << "\nProcess '" << name << "' already exists. Cannot use 'screen -s' on existing processes.\n";
+                return;
+            }
+
+            // Check if a screen session already exists
             if (screens.count(name)) {
                 std::cout << "\nScreen session '" << name << "' already exists.\n";
-            } else {
-                ScreenSession newSession = {
-                    name,
-                    schedulerProcess->currentInstruction,
-                    (int)schedulerProcess->instructions.size(),
-                    getCurrentTimestamp()
-                };
-                screens[name] = newSession;
-                screenSessionInterface(screens[name]);
+                return;
             }
-        } else if (screens.count(name)) {
-            std::cout << "\nScreen session '" << name << "' already exists.\n";
-        } else {
-            // Create manual session and add to scheduler
-            // First add the process to the scheduler
+
+            // If process does not exist yet, create it and attach to a screen session
             globalScheduler.addProcess(name);
-            
-            // Then create the screen session
             Process* newProcess = globalScheduler.getProcess(name);
+
             if (newProcess) {
                 ScreenSession newSession = {
                     name,
@@ -200,7 +190,6 @@ void handleScreenCommand(const std::string& command) {
             } else {
                 std::cout << "\nFailed to create process in scheduler.\n";
             }
-        }
     } else if (flag == "-r") {
         if (!screens.count(name) && !globalScheduler.getProcess(name)) {
             std::cout << "\nNo session named '" << name << "' found.\n";
