@@ -407,6 +407,10 @@ void Scheduler::processGenerationLoop() {
 }
 
 double Scheduler::calculateCPUUtilization() {
+    if (!isRunning){
+        return 0.0;
+    }
+    
     int activeCores = getActiveCores();
     return (double)activeCores / systemConfig.numCPU * 100.0;
 }
