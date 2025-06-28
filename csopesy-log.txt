@@ -1,0 +1,16 @@
+CPU Utilization Report
+CPU utilization: 0%
+Cores used: 0
+Cores available: 4
+
+Running processes:
+
+Finished processes:
+process1    (06/26/2025 01:19:39 AM)    Finished    1140 / 1140
+process5    (06/26/2025 01:20:10 AM)    Finished    1205 / 1205
+process6    (06/26/2025 01:20:30 AM)    Finished    1231 / 1231
+myprocess   (06/26/2025 01:21:52 AM)    Finished    1560 / 1560
+process4    (06/26/2025 01:22:13 AM)    Finished    1585 / 1585
+process2    (06/26/2025 01:22:24 AM)    Finished    1713 / 1713
+process0    (06/26/2025 01:22:26 AM)    Finished    1708 / 1708
+process3    (06/26/2025 01:23:05 AM)    Finished    1963 / 1963
