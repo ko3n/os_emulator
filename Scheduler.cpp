@@ -9,6 +9,7 @@
 #include <filesystem>
 #include <ctime>
 
+
 // Global scheduler instance
 Scheduler globalScheduler;
 
@@ -16,7 +17,7 @@ Scheduler globalScheduler;
 CPUCore::CPUCore(int coreId) : id(coreId), currentProcess(nullptr), isRunning(false), currentQuantum(0) {}
 
 // Scheduler implementation
-Scheduler::Scheduler() : isInitialized(false), isRunning(false), allProcessesFinishedMessageShown(false), processCounter(0), cpuTicks(0) {}
+Scheduler::Scheduler() : isInitialized(false), isRunning(false), allProcessesFinishedMessageShown(false), processCounter(0), cpuTicks(0), memoryManager(16384, 4096) {}
 
 bool Scheduler::initialize() {
     cores.clear();
@@ -30,6 +31,34 @@ bool Scheduler::initialize() {
     std::cout << "Scheduler algorithm: " << systemConfig.scheduler << "\n";
     std::cout << "Quantum cycles: " << systemConfig.quantumCycles << "\n";
     return true;
+}
+
+// Memory management-aware scheduling
+bool Scheduler::trySchedule(Process* p) {
+    if (memoryManager.allocate(p->id)) {
+        // Put on CPU (handled by scheduler logic)
+        return true;
+    } else {
+        // Move process to end of ready queue
+        readyQueue.push(p);
+        return false;
+    }
+}
+
+void Scheduler::onProcessFinish(Process* p) {
+    memoryManager.release(p->id);
+}
+
+// Quantum cycle memory snapshot
+void Scheduler::onQuantumCycle(int quantum) {
+    std::ostringstream oss;
+    std::time_t t = std::time(nullptr);
+    oss << "Timestamp: (" << std::put_time(std::localtime(&t), "%m/%d/%Y %H:%M:%S") << ")\n";
+    oss << "Number of processes in memory: " << memoryManager.getProcessesInMemory() << "\n";
+    oss << "Total external fragmentation in KB: " << memoryManager.getExternalFragmentationKB() << "\n";
+    memoryManager.printMemoryAscii(oss);
+    std::ofstream file("memory_stamp_" + std::to_string(quantum) + ".txt");
+    file << oss.str();
 }
 
 void Scheduler::schedulerTest() {
@@ -213,6 +242,8 @@ void Scheduler::schedulingLoop() {
     while (isRunning) {
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
         cpuTicks++;
+
+        onQuantumCycle(cpuTicks);
         
         std::lock_guard<std::mutex> lock(schedulerMutex);
         
@@ -279,13 +310,15 @@ void Scheduler::schedulingLoop() {
 void Scheduler::roundRobinSchedule() {
     for (auto& core : cores) {
         if (!core.currentProcess && !readyQueue.empty()) {
-            // Assign new process to core
-            core.currentProcess = readyQueue.front();
+            Process* candidate = readyQueue.front();
             readyQueue.pop();
-            core.currentProcess->state = ProcessState::RUNNING;
-            core.currentProcess->coreId = core.id;
-            core.isRunning = true;
-            core.currentQuantum = 0;
+            if (trySchedule(candidate)) {
+                core.currentProcess = candidate;
+                core.currentProcess->state = ProcessState::RUNNING;
+                core.currentProcess->coreId = core.id;
+                core.isRunning = true;
+                core.currentQuantum = 0;
+            } 
         } else if (core.currentProcess && core.currentQuantum >= systemConfig.quantumCycles) {
             // Time slice expired, preempt process
             if (!core.currentProcess->isFinished) {
@@ -295,14 +328,17 @@ void Scheduler::roundRobinSchedule() {
             core.currentProcess = nullptr;
             core.isRunning = false;
             core.currentQuantum = 0;
-            
+
             // Assign new process if available
             if (!readyQueue.empty()) {
-                core.currentProcess = readyQueue.front();
+                Process* candidate = readyQueue.front();
                 readyQueue.pop();
-                core.currentProcess->state = ProcessState::RUNNING;
-                core.currentProcess->coreId = core.id;
-                core.isRunning = true;
+                if (trySchedule(candidate)) {
+                    core.currentProcess = candidate;
+                    core.currentProcess->state = ProcessState::RUNNING;
+                    core.currentProcess->coreId = core.id;
+                    core.isRunning = true;
+                }
             }
         }
         
@@ -317,13 +353,13 @@ void Scheduler::fcfsSchedule(){
         if(!core.currentProcess && !readyQueue.empty()){
             Process* nextProc = readyQueue.front();
             readyQueue.pop();
-
-            nextProc->state = ProcessState::RUNNING;
-            nextProc->coreId = core.id;
-
-            core.currentProcess = nextProc;
-            core.isRunning = true;
-            //No quantum bookkeeping needed for FCFS
+            if (trySchedule(nextProc)) {
+                nextProc->state = ProcessState::RUNNING;
+                nextProc->coreId = core.id;
+                core.currentProcess = nextProc;
+                core.isRunning = true;
+                //No quantum bookkeeping needed for FCFS
+            }
         }
     }
 }

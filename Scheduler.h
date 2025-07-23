@@ -10,6 +10,7 @@
 #include <chrono>
 #include <memory>
 #include "Process.h"
+#include "MemoryManager.h"
 
 // CPU Core class
 class CPUCore {
@@ -36,6 +37,7 @@ private:
     int processCounter;
     std::chrono::system_clock::time_point startTime;
     int cpuTicks;
+    MemoryManager memoryManager{16384, 4096};
     
     void schedulingLoop();
     void roundRobinSchedule();
@@ -47,6 +49,9 @@ public:
     Scheduler();
     
     bool initialize();
+    bool trySchedule(Process* p);
+    void onProcessFinish(Process* p);
+    void onQuantumCycle(int quantum);
     void schedulerTest();
     void schedulerStop();
     void addProcess(const std::string& processName);
@@ -68,5 +73,6 @@ public:
 
 // Global scheduler instance
 extern Scheduler globalScheduler;
+
 
 #endif
