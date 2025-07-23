@@ -43,7 +43,10 @@ void initialize() {
         std::cout << "- batchProcessFreq: " << systemConfig.batchProcessFreq << "\n";
         std::cout << "- minInstructions: " << systemConfig.minInstructions << "\n";
         std::cout << "- maxInstructions: " << systemConfig.maxInstructions << "\n";
-        std::cout << "- delayPerExec: " << systemConfig.delayPerExec << "\n\n";
+        std::cout << "- delayPerExec: " << systemConfig.delayPerExec << "\n";
+        std::cout << "- maxOverallMem: " << systemConfig.maxOverallMem << "\n";
+        std::cout << "- memPerFrame: " << systemConfig.memPerFrame << "\n";
+        std::cout << "- memPerProc: " << systemConfig.memPerProc << "\n\n";
         
         // Initialize the scheduler
         if (globalScheduler.initialize()) {
