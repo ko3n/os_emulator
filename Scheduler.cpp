@@ -346,8 +346,18 @@ void Scheduler::executeInstruction(CPUCore& core) {
     instr.executedAt = std::chrono::system_clock::now();
     
     switch (instr.type) {
+        
         case InstructionType::PRINT:
             break;
+
+        /*case InstructionType::PRINT:
+            if (!instr.varName.empty() && process->variables.find(instr.varName) != process->variables.end()) {
+                std::string formattedMsg = "Value from: " + std::to_string(process->variables[instr.varName]);
+                instr.msg = "\"" + formattedMsg + "\"";
+            }
+            break;*/
+
+        // keep everything else the same below
         case InstructionType::DECLARE:
             process->variables[instr.varName] = instr.value;
             break;
@@ -407,6 +417,11 @@ void Scheduler::processGenerationLoop() {
 }
 
 double Scheduler::calculateCPUUtilization() {
+    // if scheduler stopped, cpu utilization should be 0%
+    if (!isRunning) {
+        return 0.0;
+    }
+
     int activeCores = getActiveCores();
     return (double)activeCores / systemConfig.numCPU * 100.0;
 }

@@ -1,16 +1,15 @@
 CPU Utilization Report
 CPU utilization: 0%
-Cores used: 0
-Cores available: 4
+Cores used: 7
+Cores available: 25
 
 Running processes:
+process6    (44.808s)   Core: 0   2 / 152
+process5    (46.817s)   Core: 1   9 / 123
+process4    (48.822s)   Core: 2   22 / 165
+process3    (50.835s)   Core: 3   32 / 181
+process2    (52.841s)   Core: 4   50 / 142
+process1    (54.852s)   Core: 5   49 / 186
+process0    (56.865s)   Core: 6   61 / 106
 
 Finished processes:
-process1    (06/26/2025 01:19:39 AM)    Finished    1140 / 1140
-process5    (06/26/2025 01:20:10 AM)    Finished    1205 / 1205
-process6    (06/26/2025 01:20:30 AM)    Finished    1231 / 1231
-myprocess   (06/26/2025 01:21:52 AM)    Finished    1560 / 1560
-process4    (06/26/2025 01:22:13 AM)    Finished    1585 / 1585
-process2    (06/26/2025 01:22:24 AM)    Finished    1713 / 1713
-process0    (06/26/2025 01:22:26 AM)    Finished    1708 / 1708
-process3    (06/26/2025 01:23:05 AM)    Finished    1963 / 1963

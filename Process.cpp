@@ -12,16 +12,34 @@ Process::Process(const std::string& processName, int processId)
     creationTime = std::chrono::system_clock::now();
 }
 
+// Instruction generation
 void Process::generateRandomInstructions(int minIns, int maxIns) {
     std::random_device rd;
     std::mt19937 gen(rd());
     std::uniform_int_distribution<> instructionDist(minIns, maxIns);
     std::uniform_int_distribution<> typeDist(0, 5);
     std::uniform_int_distribution<> valueDist(1, 100);
+    // std::uniform_int_distribution<> addValueDist(1, 10);
     
     int numInstructions = instructionDist(gen);
+
+    // Declare variable "x" with value 0
+    // instructions.emplace_back(InstructionType::DECLARE, "", "x", 0);
     
+    // Minus 1 from numInstructions because we have 1 DECLARE instruction outside this loop
+    // for (int i = 0; i < numInstructions - 1; i++) {
     for (int i = 0; i < numInstructions; i++) {
+
+        /*if (i % 2 == 1) {
+            // Odd indices: PRINT 
+            instructions.emplace_back(InstructionType::PRINT, 
+                "Value from: x", "x"); 
+        } else {
+            // Even indices: ADD 
+            int addValue = addValueDist(gen);
+            instructions.emplace_back(InstructionType::ADD, "", "x", addValue);
+        }*/
+
         InstructionType type = static_cast<InstructionType>(typeDist(gen));
         
         switch (type) {
