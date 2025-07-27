@@ -49,9 +49,7 @@ void initialize() {
         std::cout << "- memPerProc: " << systemConfig.memPerProc << "\n\n";
         
         // Initialize the scheduler
-        if (globalScheduler) delete globalScheduler;
-        globalScheduler = new Scheduler();
-        if (globalScheduler->initialize()) {
+        if (globalScheduler.initialize()) {
             isInitialized = true;
         } else {
             std::cout << "Failed to initialize scheduler.\n";
@@ -66,7 +64,7 @@ void schedulerTest() {
         std::cout << "Please run 'initialize' command first.\n";
         return;
     }
-    globalScheduler->schedulerTest();
+    globalScheduler.schedulerTest();
 }
 
 void schedulerStop() {
@@ -74,7 +72,7 @@ void schedulerStop() {
         std::cout << "Please run 'initialize' command first.\n";
         return;
     }
-    globalScheduler->schedulerStop();
+    globalScheduler.schedulerStop();
 }
 
 void reportUtil() {
@@ -82,7 +80,7 @@ void reportUtil() {
         std::cout << "Please run 'initialize' command first.\n";
         return;
     }
-    globalScheduler->reportUtil();
+    globalScheduler.reportUtil();
 }
 
 int main() {
@@ -101,10 +99,8 @@ int main() {
             clearScreen();
         }
         else if (userInput == "exit") {
-            if (isInitialized && globalScheduler) {
-                globalScheduler->schedulerStop();
-                delete globalScheduler;
-                globalScheduler = nullptr;
+            if (isInitialized) {
+                globalScheduler.schedulerStop();
             }
             break;
         }

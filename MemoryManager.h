@@ -26,9 +26,6 @@ public:
     size_t getExternalFragmentation() const;
     int getNumProcessesInMemory() const;
     void printMemoryMap(std::ostream& out) const;
-    // Expose blocks and totalSize for snapshot output
-    const std::vector<MemoryBlock>& getBlocks() const { return blocks; }
-    size_t getTotalSize() const { return totalSize; }
 };
 
 void outputMemorySnapshot(const MemoryManager& mm, int quantumCycle);

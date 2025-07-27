@@ -10,8 +10,8 @@
 #include <filesystem>
 #include <ctime>
 
-
-Scheduler* globalScheduler = nullptr;
+// Global scheduler instance
+Scheduler globalScheduler;
 
 // CPUCore implementation
 CPUCore::CPUCore(int coreId) : id(coreId), currentProcess(nullptr), isRunning(false), currentQuantum(0) {}

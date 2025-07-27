@@ -1,9 +1,3 @@
-#pragma once
-#include "Config.h"
-#include <memory>
-
-class Scheduler;
-extern Scheduler* globalScheduler;
 #ifndef SCHEDULER_H
 #define SCHEDULER_H
 

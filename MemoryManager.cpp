@@ -97,47 +97,16 @@ void MemoryManager::printMemoryMap(std::ostream& out) const {
 }
 
 void outputMemorySnapshot(const MemoryManager& mm, int quantumCycle) {
-    // Always use 4 files, wrap quantumCycle to 1-4
-    int fileQuantum = ((quantumCycle - 1) % 4) + 1;
-    std::ostringstream filename;
-    filename << "memory_stamp_" << std::setw(2) << std::setfill('0') << fileQuantum << ".txt";
-
-    std::ofstream outFile(filename.str(), std::ios::app);
-    if (!outFile.is_open()) {
-        std::string fullPath = "./" + filename.str();
-        outFile.open(fullPath, std::ios::app);
-        if (!outFile.is_open()) {
-            return;
-        }
-    }
-
-    // Get current timestamp (matching the format in attachment)
+    std::ostringstream fname;
+    fname << "memory_stamp_" << quantumCycle << ".txt";
+    std::ofstream out(fname.str(), std::ios::app); // append mode
+    if (!out.is_open()) return;
+    // Timestamp
     std::time_t now = std::time(nullptr);
-    char timeBuffer[100];
-    std::strftime(timeBuffer, sizeof(timeBuffer), "%m/%d/%Y %I:%M:%S%p", std::localtime(&now));
-    outFile << "Timestamp: (" << timeBuffer << ")\n";
-
-    // Number of processes in memory
-    int processCount = mm.getNumProcessesInMemory();
-    outFile << "Number of processes in memory: " << processCount << "\n";
-
-    // Total external fragmentation in KB
-    outFile << "Total external fragmentation in KB: " << mm.getExternalFragmentation() / 1024 << "\n";
-
-    // ASCII printout of memory (matching attachment format)
-    outFile << "----end---- = " << mm.getTotalSize() << "\n";
-
-    // Print memory blocks from top to bottom (reverse order) - only show allocated processes
-    const auto& blocks = mm.getBlocks();
-    for (auto it = blocks.rbegin(); it != blocks.rend(); ++it) {
-        if (it->owner) {
-            outFile << it->end << "\n";
-            outFile << it->owner->name << "\n";
-            outFile << it->start << "\n";
-        }
-    }
-
-    outFile << "----start---- = 0\n";
-    outFile << "\n"; // Add separator between snapshots
-    outFile.close();
+    out << "Timestamp: (" << std::put_time(std::localtime(&now), "%m/%d/%Y %I:%M:%S%p") << ")\n";
+    out << "Number of processes in memory: " << mm.getNumProcessesInMemory() << "\n";
+    out << "Total external fragmentation in KB: " << mm.getExternalFragmentation() / 1024 << "\n";
+    mm.printMemoryMap(out);
+    out << "\n";
+    out.close();
 }
