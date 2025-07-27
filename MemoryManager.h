@@ -1,0 +1,34 @@
+
+#pragma once
+#include "Process.h"
+#include <vector>
+#include <cstddef>
+#include <iostream>
+#include <fstream>
+#include <iomanip>
+#include <ctime>
+#include <algorithm>
+
+struct MemoryBlock {
+    size_t start;
+    size_t end;
+    Process* owner; // nullptr if free
+};
+
+class MemoryManager {
+    std::vector<MemoryBlock> blocks;
+    size_t totalSize;
+    size_t memPerProc;
+public:
+    MemoryManager(size_t total, size_t perProc);
+    bool allocate(Process* p);
+    void free(Process* p);
+    size_t getExternalFragmentation() const;
+    int getNumProcessesInMemory() const;
+    void printMemoryMap(std::ostream& out) const;
+    // Expose blocks and totalSize for snapshot output
+    const std::vector<MemoryBlock>& getBlocks() const { return blocks; }
+    size_t getTotalSize() const { return totalSize; }
+};
+
+void outputMemorySnapshot(const MemoryManager& mm, int quantumCycle);

@@ -53,8 +53,11 @@ public:
     bool isFinished;
     std::vector<int> forStack;
     std::vector<int> forCounters;
+    size_t memStart = 0;
+    size_t memEnd = 0;
     
     Process(const std::string& processName, int processId);
+    bool hasMemory = false;
     void generateRandomInstructions(int minIns, int maxIns);
 };
 

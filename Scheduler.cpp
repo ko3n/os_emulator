@@ -1,5 +1,6 @@
 #include "Scheduler.h"
 #include "Config.h"
+#include "MemoryManager.h"
 #include <iostream>
 #include <fstream>
 #include <sstream>
@@ -9,14 +10,20 @@
 #include <filesystem>
 #include <ctime>
 
-// Global scheduler instance
-Scheduler globalScheduler;
+
+Scheduler* globalScheduler = nullptr;
 
 // CPUCore implementation
 CPUCore::CPUCore(int coreId) : id(coreId), currentProcess(nullptr), isRunning(false), currentQuantum(0) {}
 
 // Scheduler implementation
-Scheduler::Scheduler() : isInitialized(false), isRunning(false), allProcessesFinishedMessageShown(false), processCounter(0), cpuTicks(0) {}
+Scheduler::Scheduler() :
+    memoryManager(systemConfig.maxOverallMem, systemConfig.memPerProc),
+    isInitialized(false),
+    isRunning(false),
+    allProcessesFinishedMessageShown(false),
+    processCounter(0),
+    cpuTicks(0) {}
 
 bool Scheduler::initialize() {
     cores.clear();
@@ -104,6 +111,27 @@ void Scheduler::printScreen() {
         }
     }
     
+    // Show waiting for memory processes (skip those running on a core)
+    for (const auto& processPtr : allProcesses) {
+        const Process* process = processPtr.get();
+        if (process->isFinished) continue;
+        bool isRunning = false;
+        for (const auto& core : cores) {
+            if (core.currentProcess == process) {
+                isRunning = true;
+                break;
+            }
+        }
+        if (!isRunning && !process->hasMemory) {
+            std::cout << std::left
+                      << std::setw(12) << process->name
+                      << std::setw(28) << "(waiting for memory)"
+                      << std::setw(10) << ""
+                      << std::setw(10) << ""
+                      << "\n";
+        }
+    }
+
     std::cout << "\nFinished processes:\n";
 
     std::vector<const Process*> finishedProcesses;
@@ -136,7 +164,6 @@ void Scheduler::printScreen() {
                   << "\n";        
     }
 
-    
     std::cout << "----------------------------------------\n";
 }
 
@@ -163,6 +190,27 @@ void Scheduler::reportUtil() {
             }
         }
         
+        // Show waiting for memory processes (skip those running on a core)
+        for (const auto& processPtr : allProcesses) {
+            const Process* process = processPtr.get();
+            if (process->isFinished) continue;
+            bool isRunning = false;
+            for (const auto& core : cores) {
+                if (core.currentProcess == process) {
+                    isRunning = true;
+                    break;
+                }
+            }
+            if (!isRunning && !process->hasMemory) {
+                report << std::left
+                       << std::setw(12) << process->name
+                       << std::setw(28) << "(waiting for memory)"
+                       << std::setw(10) << ""
+                       << std::setw(10) << ""
+                       << "\n";
+            }
+        }
+
         report << "\nFinished processes:\n";
 
         std::vector<const Process*> finishedProcesses;
@@ -213,64 +261,85 @@ void Scheduler::schedulingLoop() {
     while (isRunning) {
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
         cpuTicks++;
-        
-        std::lock_guard<std::mutex> lock(schedulerMutex);
-        
-        // Check for finished processes and free cores
-        for (auto& core : cores) {
-            if (core.currentProcess && core.currentProcess->isFinished) {
-                core.currentProcess = nullptr;
-                core.isRunning = false;
-                core.currentQuantum = 0;
-            }
-        }
-        
-        // Round-robin scheduling
-        if (systemConfig.scheduler == "rr") {
-            roundRobinSchedule();
-        }
-        // First Come First Serve scheduling
-        else if (systemConfig.scheduler == "fcfs") {
-            fcfsSchedule();
-        }
-        
-        // Execute instructions on running cores
-        for (auto& core : cores) {
-            if (core.currentProcess) {
-                executeInstruction(core);
-            }
-        }
-        
-        // Check if all processes are finished
-        if (!allProcessesFinishedMessageShown && !allProcesses.empty()) {
-            bool allFinished = true;
-            bool hasRunningProcesses = false;
+        {
+            std::lock_guard<std::mutex> lock(schedulerMutex);
             
-            // Check if any process is still running or in ready queue
-            for (const auto& processPtr : allProcesses) {
-                const Process& process = *processPtr;
-                if (!process.isFinished) {
-                    allFinished = false;
-                    break;
+            // Check for finished processes and free cores
+            for (auto& core : cores) {
+                if (core.currentProcess && core.currentProcess->isFinished) {
+                    core.currentProcess = nullptr;
+                    core.isRunning = false;
+                    core.currentQuantum = 0;
                 }
             }
             
-            // Check if any core has a running process
-            for (const auto& core : cores) {
+            // Try to allocate memory for processes in the ready queue that don't have memory
+            std::queue<Process*> tempQueue;
+            while (!readyQueue.empty()) {
+                Process* proc = readyQueue.front();
+                readyQueue.pop();
+                if (!proc->hasMemory) {
+                    memoryManager.allocate(proc);
+                }
+                tempQueue.push(proc);
+            }
+            readyQueue = tempQueue;
+
+            // Round-robin scheduling
+            if (systemConfig.scheduler == "rr") {
+                roundRobinSchedule();
+            }
+            // First Come First Serve scheduling
+            else if (systemConfig.scheduler == "fcfs") {
+                fcfsSchedule();
+            }
+            
+            // Execute instructions on running cores
+            for (auto& core : cores) {
                 if (core.currentProcess) {
-                    hasRunningProcesses = true;
-                    break;
+                    executeInstruction(core);
                 }
             }
             
-            // Check if ready queue is empty
-            bool readyQueueEmpty = readyQueue.empty();
-            
-            if (allFinished && !hasRunningProcesses && readyQueueEmpty) {
-                std::cout << "\n=== All processes have finished execution ===\n";
-                std::cout << "Scheduler is still running. Use 'screen -ls' to view process summary.\n";
-                std::cout << "Type 'scheduler-stop' to stop the scheduler or 'exit' to quit.\n\n>";
-                allProcessesFinishedMessageShown = true;
+            // Check if all processes are finished
+            if (!allProcessesFinishedMessageShown && !allProcesses.empty()) {
+                bool allFinished = true;
+                bool hasRunningProcesses = false;
+                
+                // Check if any process is still running or in ready queue
+                for (const auto& processPtr : allProcesses) {
+                    const Process& process = *processPtr;
+                    if (!process.isFinished) {
+                        allFinished = false;
+                        break;
+                    }
+                }
+                
+                // Check if any core has a running process
+                for (const auto& core : cores) {
+                    if (core.currentProcess) {
+                        hasRunningProcesses = true;
+                        break;
+                    }
+                }
+                
+                // Check if ready queue is empty
+                bool readyQueueEmpty = readyQueue.empty();
+                
+                if (allFinished && !hasRunningProcesses && readyQueueEmpty) {
+                    std::cout << "\n=== All processes have finished execution ===\n";
+                    std::cout << "Scheduler is still running. Use 'screen -ls' to view process summary.\n";
+                    std::cout << "Type 'scheduler-stop' to stop the scheduler or 'exit' to quit.\n\n>";
+                    allProcessesFinishedMessageShown = true;
+                }
+            }
+
+            // After all scheduling and execution logic, output memory snapshot every quantum cycle
+            if (cpuTicks > 0) {
+                int quantumNum = (cpuTicks - 1) / systemConfig.quantumCycles + 1;
+                if (quantumNum <= systemConfig.quantumCycles) {
+                    outputMemorySnapshot(memoryManager, quantumNum);
+                }
             }
         }
     }

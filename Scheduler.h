@@ -1,3 +1,9 @@
+#pragma once
+#include "Config.h"
+#include <memory>
+
+class Scheduler;
+extern Scheduler* globalScheduler;
 #ifndef SCHEDULER_H
 #define SCHEDULER_H
 
@@ -10,6 +16,7 @@
 #include <chrono>
 #include <memory>
 #include "Process.h"
+#include "MemoryManager.h"
 
 // CPU Core class
 class CPUCore {
@@ -36,6 +43,7 @@ private:
     int processCounter;
     std::chrono::system_clock::time_point startTime;
     int cpuTicks;
+    MemoryManager memoryManager;
     
     void schedulingLoop();
     void roundRobinSchedule();
