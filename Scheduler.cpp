@@ -269,44 +269,45 @@ void Scheduler::schedulingLoop() {
         cpuTicks++;
         {
             std::lock_guard<std::mutex> lock(schedulerMutex);
-            
-            // Check for finished processes and free cores
+
+            // 1. Deallocate memory for finished processes and free cores
             for (auto& core : cores) {
                 if (core.currentProcess && core.currentProcess->isFinished) {
+                    if (core.currentProcess->hasMemory) {
+                        memoryManager.free(core.currentProcess);
+                    }
                     core.currentProcess = nullptr;
                     core.isRunning = false;
                     core.currentQuantum = 0;
                 }
             }
-            
-            // Try to allocate memory for processes in the ready queue that don't have memory
+
+            // 2. Try to allocate memory for processes in the ready queue that don't have memory
             std::queue<Process*> tempQueue;
             while (!readyQueue.empty()) {
                 Process* proc = readyQueue.front();
                 readyQueue.pop();
-                if (!proc->hasMemory) {
-                    memoryManager.allocate(proc);
+                if (!proc->hasMemory && !proc->isFinished) {
+                    // Optionally print debug info
+                    if (memoryManager.allocate(proc)) {
+                        std::cout << "[Scheduler] Allocated memory for " << proc->name << "\n";
+                    }
                 }
                 tempQueue.push(proc);
             }
             readyQueue = tempQueue;
 
-            // Round-robin scheduling
+            // 3. Schedule processes
             if (systemConfig.scheduler == "rr") {
                 roundRobinSchedule();
             }
-            // First Come First Serve scheduling
             else if (systemConfig.scheduler == "fcfs") {
                 fcfsSchedule();
             }
-            
-            // Execute instructions on running cores
+
+            // 4. Execute instructions on running cores
             for (auto& core : cores) {
                 if (core.currentProcess) {
-                    // Before executing, check if process will finish and free memory
-                    if (core.currentProcess->isFinished && core.currentProcess->hasMemory) {
-                        memoryManager.free(core.currentProcess);
-                    }
                     executeInstruction(core);
                 }
             }
@@ -345,9 +346,27 @@ void Scheduler::schedulingLoop() {
             }
 
             // After all scheduling and execution logic, output memory snapshot every quantum cycle
-            if (cpuTicks > 0 && ((cpuTicks - 1) % systemConfig.quantumCycles == 0)) {
-                int quantumNum = (cpuTicks - 1) / systemConfig.quantumCycles + 1;
-                outputMemorySnapshot(memoryManager, quantumNum);
+            // Only output memory snapshot if not all processes are finished
+            bool allFinished = true;
+            for (const auto& processPtr : allProcesses) {
+                if (!processPtr->isFinished) {
+                    allFinished = false;
+                    break;
+                }
+            }
+            bool hasRunningProcesses = false;
+            for (const auto& core : cores) {
+                if (core.currentProcess) {
+                    hasRunningProcesses = true;
+                    break;
+                }
+            }
+            bool readyQueueEmpty = readyQueue.empty();
+            if (!allFinished || hasRunningProcesses || !readyQueueEmpty) {
+                if (cpuTicks > 0 && ((cpuTicks - 1) % systemConfig.quantumCycles == 0)) {
+                    int quantumNum = (cpuTicks - 1) / systemConfig.quantumCycles + 1;
+                    outputMemorySnapshot(memoryManager, quantumNum);
+                }
             }
         }
     }
