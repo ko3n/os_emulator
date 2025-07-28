@@ -1,5 +1,6 @@
 #include "ScreenSession.h"
 #include "Scheduler.h"
+extern Scheduler* globalScheduler;
 #include <iostream>
 #include <ctime>
 #include <iomanip>
@@ -21,7 +22,7 @@ std::string getCurrentTimestamp() {
 }
 
 void displayHeader(const std::string& sessionName) {
-    Process* realProcess = globalScheduler.getProcess(sessionName);
+    Process* realProcess = globalScheduler ? globalScheduler->getProcess(sessionName) : nullptr;
     if (!realProcess) return;
     
     std::cout << "\033[1;1H";  
@@ -76,7 +77,7 @@ void screenSessionInterface(ScreenSession& session) {
             
         } else if (input == "process-smi") {
             // Show detailed process information
-            Process* smiProcess = globalScheduler.getProcess(session.name);
+            Process* smiProcess = globalScheduler ? globalScheduler->getProcess(session.name) : nullptr;
             if (smiProcess) {
                 int printedLines = 0;
 
@@ -157,55 +158,59 @@ void handleScreenCommand(const std::string& command) {
     iss >> cmd >> flag >> name;
     
     if (flag == "-s") {
-            // Check if the process already exists in the scheduler
-            if (globalScheduler.getProcess(name)) {
-                std::cout << "\nProcess '" << name << "' already exists. Cannot use 'screen -s' on existing processes.\n";
-                return;
-            }
+        // Check if the process already exists in the scheduler
+        if (globalScheduler && globalScheduler->getProcess(name)) {
+            std::cout << "\nProcess '" << name << "' already exists. Cannot use 'screen -s' on existing processes.\n";
+            return;
+        }
 
-            // Check if a screen session already exists
-            if (screens.count(name)) {
-                std::cout << "\nScreen session '" << name << "' already exists.\n";
-                return;
-            }
+        // Check if a screen session already exists
+        if (screens.count(name)) {
+            std::cout << "\nScreen session '" << name << "' already exists.\n";
+            return;
+        }
 
-            // If process does not exist yet, create it and attach to a screen session
-            globalScheduler.addProcess(name);
-            Process* newProcess = globalScheduler.getProcess(name);
+        // If process does not exist yet, create it and attach to a screen session
+        if (globalScheduler) {
+            globalScheduler->addProcess(name);
+        }
+        Process* newProcess = globalScheduler ? globalScheduler->getProcess(name) : nullptr;
 
-            if (newProcess) {
-                ScreenSession newSession = {
-                    name,
-                    newProcess->currentInstruction,
-                    (int)newProcess->instructions.size(),
-                    getCurrentTimestamp()
-                };
-                screens[name] = newSession;
-                screenSessionInterface(screens[name]);
-            } else {
-                std::cout << "\nFailed to create process in scheduler.\n";
-            }
+        if (newProcess) {
+            ScreenSession newSession = {
+                name,
+                newProcess->currentInstruction,
+                (int)newProcess->instructions.size(),
+                getCurrentTimestamp()
+            };
+            screens[name] = newSession;
+            screenSessionInterface(screens[name]);
+        } else {
+            std::cout << "\nFailed to create process in scheduler.\n";
+        }
     } else if (flag == "-r") {
-        if (!screens.count(name) && !globalScheduler.getProcess(name)) {
+        if (!screens.count(name) && (!globalScheduler || !globalScheduler->getProcess(name))) {
             std::cout << "\nNo session named '" << name << "' found.\n";
         } else {
             if (!screens.count(name)) {
                 // Create session for scheduler process
-                Process* schedulerProcess = globalScheduler.getProcess(name);
-                ScreenSession newSession = {
-                    name,
-                    schedulerProcess->currentInstruction,
-                    (int)schedulerProcess->instructions.size(),
-                    getCurrentTimestamp()
-                };
-                screens[name] = newSession;
+                Process* schedulerProcess = globalScheduler ? globalScheduler->getProcess(name) : nullptr;
+                if (schedulerProcess) {
+                    ScreenSession newSession = {
+                        name,
+                        schedulerProcess->currentInstruction,
+                        (int)schedulerProcess->instructions.size(),
+                        getCurrentTimestamp()
+                    };
+                    screens[name] = newSession;
+                }
             }
             screenSessionInterface(screens[name]);
         }
     } else if (flag == "-ls") {
         // Show process list from scheduler
         std::cout << "\n";
-        globalScheduler.printScreen();
+        if (globalScheduler) globalScheduler->printScreen();
     } else {
         std::cout << "\nInvalid screen usage. Try: screen -s <name>, screen -r <name>, or screen -ls\n";
     }

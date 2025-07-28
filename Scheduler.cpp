@@ -10,8 +10,6 @@
 #include <filesystem>
 #include <ctime>
 
-// Global scheduler instance
-Scheduler globalScheduler;
 
 // CPUCore implementation
 CPUCore::CPUCore(int coreId) : id(coreId), currentProcess(nullptr), isRunning(false), currentQuantum(0) {}
@@ -49,9 +47,17 @@ void Scheduler::schedulerTest() {
     allProcessesFinishedMessageShown = false; // Reset flag when starting
     std::cout << "Scheduler started.\n";
     
+    // COMMENTED OUT FOR NOW
+    // Immediately create 4 processes at startup 
+    // for (int i = 0; i < 4; ++i) {
+    //    std::string processName = "process" + std::to_string(i);
+    //    addProcess(processName);
+    //}
+
     std::thread schedulingThread(&Scheduler::schedulingLoop, this);
     schedulingThread.detach();
-    
+
+    // Continue generating more processes as before
     std::thread processGenThread(&Scheduler::processGenerationLoop, this);
     processGenThread.detach();
 }
@@ -297,6 +303,10 @@ void Scheduler::schedulingLoop() {
             // Execute instructions on running cores
             for (auto& core : cores) {
                 if (core.currentProcess) {
+                    // Before executing, check if process will finish and free memory
+                    if (core.currentProcess->isFinished && core.currentProcess->hasMemory) {
+                        memoryManager.free(core.currentProcess);
+                    }
                     executeInstruction(core);
                 }
             }
@@ -335,11 +345,9 @@ void Scheduler::schedulingLoop() {
             }
 
             // After all scheduling and execution logic, output memory snapshot every quantum cycle
-            if (cpuTicks > 0) {
+            if (cpuTicks > 0 && ((cpuTicks - 1) % systemConfig.quantumCycles == 0)) {
                 int quantumNum = (cpuTicks - 1) / systemConfig.quantumCycles + 1;
-                if (quantumNum <= systemConfig.quantumCycles) {
-                    outputMemorySnapshot(memoryManager, quantumNum);
-                }
+                outputMemorySnapshot(memoryManager, quantumNum);
             }
         }
     }

@@ -32,10 +32,17 @@ bool MemoryManager::allocate(Process* p) {
                 p->memEnd = allocEnd;
             }
             p->hasMemory = true;
+            // Debug output: print block list after allocation
+            // std::cout << "[MemoryManager] After allocating " << p->name << ":\n";
+            // for (const auto& block : blocks) {
+            //     std::cout << "  Block: [" << block.start << ", " << block.end << "] " << (block.owner ? block.owner->name : "FREE") << "\n";
+            // }
             return true;
         }
     }
     p->hasMemory = false;
+    // Debug output: allocation failed
+    // std::cout << "[MemoryManager] Allocation failed for " << p->name << "\n";
     return false;
 }
 
@@ -97,16 +104,46 @@ void MemoryManager::printMemoryMap(std::ostream& out) const {
 }
 
 void outputMemorySnapshot(const MemoryManager& mm, int quantumCycle) {
-    std::ostringstream fname;
-    fname << "memory_stamp_" << quantumCycle << ".txt";
-    std::ofstream out(fname.str(), std::ios::app); // append mode
-    if (!out.is_open()) return;
-    // Timestamp
+    // Always use 4 files, wrap quantumCycle to 1-4
+    int fileQuantum = ((quantumCycle - 1) % 4) + 1;
+    std::ostringstream filename;
+    filename << "memory_stamp_" << std::setw(2) << std::setfill('0') << fileQuantum << ".txt";
+
+    std::ofstream outFile(filename.str(), std::ios::app);
+    if (!outFile.is_open()) {
+        std::string fullPath = "./" + filename.str();
+        outFile.open(fullPath, std::ios::app);
+        if (!outFile.is_open()) {
+            return;
+        }
+    }
+
+    // Get current timestamp (matching the format in attachment)
     std::time_t now = std::time(nullptr);
-    out << "Timestamp: (" << std::put_time(std::localtime(&now), "%m/%d/%Y %I:%M:%S%p") << ")\n";
-    out << "Number of processes in memory: " << mm.getNumProcessesInMemory() << "\n";
-    out << "Total external fragmentation in KB: " << mm.getExternalFragmentation() / 1024 << "\n";
-    mm.printMemoryMap(out);
-    out << "\n";
-    out.close();
+    char timeBuffer[100];
+    std::strftime(timeBuffer, sizeof(timeBuffer), "%m/%d/%Y %I:%M:%S%p", std::localtime(&now));
+    outFile << "Timestamp: (" << timeBuffer << ")\n";
+
+    // Number of processes in memory
+    int processCount = mm.getNumProcessesInMemory();
+    outFile << "Number of processes in memory: " << processCount << "\n";
+
+    // Total external fragmentation in KB
+    outFile << "Total external fragmentation in KB: " << mm.getExternalFragmentation() / 1024 << "\n";
+
+    // ASCII printout of memory (matching attachment format)
+    outFile << "----end---- = " << mm.getTotalSize() << "\n";
+
+    // Print only allocated blocks in descending address order (matching sample)
+    for (auto it = mm.getBlocks().rbegin(); it != mm.getBlocks().rend(); ++it) {
+        if (it->owner != nullptr) {
+            outFile << it->end << "\n";
+            outFile << it->owner->name << "\n";
+            outFile << it->start << "\n";
+        }
+    }
+
+    outFile << "----start---- = 0\n";
+    outFile << "\n"; // Add separator between snapshots
+    outFile.close();
 }

@@ -68,7 +68,5 @@ public:
 
 };
 
-// Global scheduler instance
-extern Scheduler globalScheduler;
 
 #endif
