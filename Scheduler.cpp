@@ -347,29 +347,25 @@ void Scheduler::schedulingLoop() {
 
             // After all scheduling and execution logic, output memory snapshot every quantum cycle
             // Only output memory snapshot if not all processes are finished
-            static int snapshotCounter = 1;
-            static int nextSnapshotTime = systemConfig.quantumCycles * 1000 / 18;
-
-            if (cpuTicks >= nextSnapshotTime) {
-                bool allFinished = true;
-                for (const auto& processPtr : allProcesses) {
-                    if (!processPtr->isFinished) {
-                        allFinished = false;
-                        break;
-                    }
+            bool allFinished = true;
+            for (const auto& processPtr : allProcesses) {
+                if (!processPtr->isFinished) {
+                    allFinished = false;
+                    break;
                 }
-                bool hasRunningProcesses = false;
-                for (const auto& core : cores) {
-                    if (core.currentProcess) {
-                        hasRunningProcesses = true;
-                        break;
-                    }
+            }
+            bool hasRunningProcesses = false;
+            for (const auto& core : cores) {
+                if (core.currentProcess) {
+                    hasRunningProcesses = true;
+                    break;
                 }
-                bool readyQueueEmpty = readyQueue.empty();
-                
-                if (!allFinished || hasRunningProcesses || !readyQueueEmpty) {
-                    outputMemorySnapshot(memoryManager, snapshotCounter++);
-                    nextSnapshotTime += systemConfig.quantumCycles * 1000 / 18; 
+            }
+            bool readyQueueEmpty = readyQueue.empty();
+            if (!allFinished || hasRunningProcesses || !readyQueueEmpty) {
+                if (cpuTicks > 0 && ((cpuTicks - 1) % systemConfig.quantumCycles == 0)) {
+                    int quantumNum = (cpuTicks - 1) / systemConfig.quantumCycles + 1;
+                    outputMemorySnapshot(memoryManager, quantumNum);
                 }
             }
         }

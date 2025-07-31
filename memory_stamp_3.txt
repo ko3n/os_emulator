@@ -88,24 +88,6 @@ process3
 0
 ----start---- = 0
 
-Timestamp: (07/31/2025 12:32:32PM)
-Number of processes in memory: 4
-Total external fragmentation in KB: 0
-----end---- = 16384
-16384
-process0
-12288
-12288
-process1
-8192
-8192
-process2
-4096
-4096
-process3
-0
-----start---- = 0
-
 Timestamp: (07/31/2025 12:32:33PM)
 Number of processes in memory: 4
 Total external fragmentation in KB: 0
@@ -125,6 +107,24 @@ process3
 ----start---- = 0
 
 Timestamp: (07/31/2025 12:32:33PM)
+Number of processes in memory: 4
+Total external fragmentation in KB: 0
+----end---- = 16384
+16384
+process0
+12288
+12288
+process1
+8192
+8192
+process2
+4096
+4096
+process3
+0
+----start---- = 0
+
+Timestamp: (07/31/2025 12:32:34PM)
 Number of processes in memory: 4
 Total external fragmentation in KB: 0
 ----end---- = 16384
@@ -250,24 +250,6 @@ process3
 0
 ----start---- = 0
 
-Timestamp: (07/31/2025 12:32:37PM)
-Number of processes in memory: 4
-Total external fragmentation in KB: 0
-----end---- = 16384
-16384
-process4
-12288
-12288
-process1
-8192
-8192
-process2
-4096
-4096
-process3
-0
-----start---- = 0
-
 Timestamp: (07/31/2025 12:32:38PM)
 Number of processes in memory: 4
 Total external fragmentation in KB: 0
@@ -287,6 +269,24 @@ process3
 ----start---- = 0
 
 Timestamp: (07/31/2025 12:32:38PM)
+Number of processes in memory: 4
+Total external fragmentation in KB: 0
+----end---- = 16384
+16384
+process4
+12288
+12288
+process1
+8192
+8192
+process2
+4096
+4096
+process3
+0
+----start---- = 0
+
+Timestamp: (07/31/2025 12:32:39PM)
 Number of processes in memory: 4
 Total external fragmentation in KB: 0
 ----end---- = 16384
