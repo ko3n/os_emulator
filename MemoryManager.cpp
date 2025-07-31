@@ -104,10 +104,8 @@ void MemoryManager::printMemoryMap(std::ostream& out) const {
 }
 
 void outputMemorySnapshot(const MemoryManager& mm, int quantumCycle) {
-    // Always use 4 files, wrap quantumCycle to 1-4
-    int fileQuantum = ((quantumCycle - 1) % 4) + 1;
     std::ostringstream filename;
-    filename << "memory_stamp_" << std::setw(2) << std::setfill('0') << fileQuantum << ".txt";
+    filename << "memory_stamp_" << quantumCycle << ".txt";
 
     std::ofstream outFile(filename.str(), std::ios::app);
     if (!outFile.is_open()) {

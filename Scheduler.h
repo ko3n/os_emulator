@@ -33,6 +33,7 @@ private:
     std::mutex schedulerMutex;
     bool isInitialized;
     bool isRunning;
+    bool isGeneratingProcesses;
     bool allProcessesFinishedMessageShown;
     int processCounter;
     std::chrono::system_clock::time_point startTime;

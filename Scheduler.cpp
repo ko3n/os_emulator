@@ -19,6 +19,7 @@ Scheduler::Scheduler() :
     memoryManager(systemConfig.maxOverallMem, systemConfig.memPerProc),
     isInitialized(false),
     isRunning(false),
+    isGeneratingProcesses(false),
     allProcessesFinishedMessageShown(false),
     processCounter(0),
     cpuTicks(0) {}
@@ -44,6 +45,7 @@ void Scheduler::schedulerTest() {
     }
     
     isRunning = true;
+    isGeneratingProcesses = true;
     allProcessesFinishedMessageShown = false; // Reset flag when starting
     std::cout << "Scheduler started.\n";
     
@@ -63,7 +65,7 @@ void Scheduler::schedulerTest() {
 }
 
 void Scheduler::schedulerStop() {
-    isRunning = false;
+    isGeneratingProcesses = false;
     std::cout << "Scheduler stopped.\n";
 }
 
@@ -265,7 +267,7 @@ Process* Scheduler::getProcess(const std::string& processName) {
 
 void Scheduler::schedulingLoop() {
     while (isRunning) {
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        std::this_thread::sleep_for(std::chrono::milliseconds(18));
         cpuTicks++;
         {
             std::lock_guard<std::mutex> lock(schedulerMutex);
@@ -289,9 +291,7 @@ void Scheduler::schedulingLoop() {
                 readyQueue.pop();
                 if (!proc->hasMemory && !proc->isFinished) {
                     // Optionally print debug info
-                    if (memoryManager.allocate(proc)) {
-                        std::cout << "[Scheduler] Allocated memory for " << proc->name << "\n";
-                    }
+                    memoryManager.allocate(proc);
                 }
                 tempQueue.push(proc);
             }
@@ -347,25 +347,29 @@ void Scheduler::schedulingLoop() {
 
             // After all scheduling and execution logic, output memory snapshot every quantum cycle
             // Only output memory snapshot if not all processes are finished
-            bool allFinished = true;
-            for (const auto& processPtr : allProcesses) {
-                if (!processPtr->isFinished) {
-                    allFinished = false;
-                    break;
+            static int snapshotCounter = 1;
+            static int nextSnapshotTime = systemConfig.quantumCycles * 1000 / 18;
+
+            if (cpuTicks >= nextSnapshotTime) {
+                bool allFinished = true;
+                for (const auto& processPtr : allProcesses) {
+                    if (!processPtr->isFinished) {
+                        allFinished = false;
+                        break;
+                    }
                 }
-            }
-            bool hasRunningProcesses = false;
-            for (const auto& core : cores) {
-                if (core.currentProcess) {
-                    hasRunningProcesses = true;
-                    break;
+                bool hasRunningProcesses = false;
+                for (const auto& core : cores) {
+                    if (core.currentProcess) {
+                        hasRunningProcesses = true;
+                        break;
+                    }
                 }
-            }
-            bool readyQueueEmpty = readyQueue.empty();
-            if (!allFinished || hasRunningProcesses || !readyQueueEmpty) {
-                if (cpuTicks > 0 && ((cpuTicks - 1) % systemConfig.quantumCycles == 0)) {
-                    int quantumNum = (cpuTicks - 1) / systemConfig.quantumCycles + 1;
-                    outputMemorySnapshot(memoryManager, quantumNum);
+                bool readyQueueEmpty = readyQueue.empty();
+                
+                if (!allFinished || hasRunningProcesses || !readyQueueEmpty) {
+                    outputMemorySnapshot(memoryManager, snapshotCounter++);
+                    nextSnapshotTime += systemConfig.quantumCycles * 1000 / 18; 
                 }
             }
         }
@@ -458,7 +462,7 @@ void Scheduler::executeInstruction(CPUCore& core) {
             }
             break;
         case InstructionType::SLEEP:
-            std::this_thread::sleep_for(std::chrono::milliseconds(instr.value * 10));
+            std::this_thread::sleep_for(std::chrono::milliseconds(2));
             break;
         case InstructionType::FOR_START:
             process->forStack.push_back(process->currentInstruction);
@@ -489,12 +493,11 @@ void Scheduler::executeInstruction(CPUCore& core) {
 
 void Scheduler::processGenerationLoop() {
     int automaticProcessCounter = 0; // separate counter for dummy processes
-    const int maxTotalProcesses = 8;
 
-    while (isRunning && allProcesses.size() < maxTotalProcesses) {
+    while (isGeneratingProcesses) {
         std::this_thread::sleep_for(std::chrono::seconds(systemConfig.batchProcessFreq));
         
-        if (isRunning && allProcesses.size() < maxTotalProcesses) {
+        if (isGeneratingProcesses) {
             std::string processName = "process" + std::to_string(automaticProcessCounter);
             automaticProcessCounter++;
             addProcess(processName);
@@ -503,10 +506,6 @@ void Scheduler::processGenerationLoop() {
 }
 
 double Scheduler::calculateCPUUtilization() {
-    if (!isRunning){
-        return 0.0;
-    }
-    
     int activeCores = getActiveCores();
     return (double)activeCores / systemConfig.numCPU * 100.0;
 }

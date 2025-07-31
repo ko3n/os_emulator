@@ -42,8 +42,7 @@ void Process::generateRandomInstructions(int minIns, int maxIns) {
                     "var" + std::to_string(i % 3), valueDist(gen));
                 break;
             case InstructionType::SLEEP:
-                instructions.emplace_back(InstructionType::SLEEP, "", "", 
-                    std::uniform_int_distribution<>(1, 10)(gen));
+                instructions.emplace_back(InstructionType::SLEEP, "", "", 2);
                 break;
             case InstructionType::FOR_START:
                 if (i < numInstructions - 2) {
@@ -54,6 +53,10 @@ void Process::generateRandomInstructions(int minIns, int maxIns) {
                         "\"Hello world from " + name + "!\"");
                     instructions.emplace_back(InstructionType::FOR_END);
                     i += 2;
+                } else {
+                    // Not enough space for FOR loop, add PRINT instead
+                    instructions.emplace_back(InstructionType::PRINT, 
+                    "\"Hello world from " + name + "!\"");
                 }
                 break;
         }
