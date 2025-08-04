@@ -155,9 +155,35 @@ void screenSessionInterface(ScreenSession& session) {
 void handleScreenCommand(const std::string& command) {
     std::istringstream iss(command);
     std::string cmd, flag, name;
-    iss >> cmd >> flag >> name;
+    iss >> cmd >> flag;
     
     if (flag == "-s") {
+        std::string memoryStr;
+        iss >> name >> memoryStr;
+        
+        // Check if both name and memory size are provided
+        if (name.empty() || memoryStr.empty()) {
+            std::cout << "\nUsage: screen -s <process_name> <memory_size>\n";
+            std::cout << "Memory size must be power of 2 between 64 and 65536 bytes.\n";
+            return;
+        }
+        
+        int memorySize;
+        try {
+            memorySize = std::stoi(memoryStr);
+        } catch (const std::exception& e) {
+            std::cout << "\nInvalid memory size format. Please enter a valid number.\n";
+            return;
+        }
+        
+        // Validate memory size: must be power of 2 and within [64, 65536] range
+        auto isPowerOf2 = [](int n) { return n > 0 && (n & (n - 1)) == 0; };
+        
+        if (!isPowerOf2(memorySize) || memorySize < 64 || memorySize > 65536) {
+            std::cout << "\nInvalid memory allocation. Memory must be power of 2 between 64 and 65536 bytes.\n";
+            return;
+        }
+        
         // Check if the process already exists in the scheduler
         if (globalScheduler && globalScheduler->getProcess(name)) {
             std::cout << "\nProcess '" << name << "' already exists. Cannot use 'screen -s' on existing processes.\n";
@@ -170,10 +196,11 @@ void handleScreenCommand(const std::string& command) {
             return;
         }
 
-        // If process does not exist yet, create it and attach to a screen session
+        // Create process with specified memory size
         if (globalScheduler) {
-            globalScheduler->addProcess(name);
+            globalScheduler->addProcessWithMemory(name, memorySize);
         }
+        
         Process* newProcess = globalScheduler ? globalScheduler->getProcess(name) : nullptr;
 
         if (newProcess) {
@@ -184,11 +211,15 @@ void handleScreenCommand(const std::string& command) {
                 getCurrentTimestamp()
             };
             screens[name] = newSession;
+            std::cout << "\nProcess '" << name << "' created with " << memorySize << " bytes of memory.\n";
             screenSessionInterface(screens[name]);
         } else {
-            std::cout << "\nFailed to create process in scheduler.\n";
+            std::cout << "\nFailed to create process in scheduler - insufficient memory.\n";
         }
-    } else if (flag == "-r") {
+    } 
+    else if (flag == "-r") {
+        iss >> name; // Read the name for -r flag
+        
         if (!screens.count(name) && (!globalScheduler || !globalScheduler->getProcess(name))) {
             std::cout << "\nNo session named '" << name << "' found.\n";
         } else {
@@ -207,11 +238,13 @@ void handleScreenCommand(const std::string& command) {
             }
             screenSessionInterface(screens[name]);
         }
-    } else if (flag == "-ls") {
+    } 
+    else if (flag == "-ls") {
         // Show process list from scheduler
         std::cout << "\n";
         if (globalScheduler) globalScheduler->printScreen();
-    } else {
-        std::cout << "\nInvalid screen usage. Try: screen -s <name>, screen -r <name>, or screen -ls\n";
+    } 
+    else {
+        std::cout << "\nInvalid screen usage.\n";
     }
 }

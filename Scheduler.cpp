@@ -1,4 +1,5 @@
 #include "Scheduler.h"
+#include "Process.h"
 #include "Config.h"
 #include "MemoryManager.h"
 #include <iostream>
@@ -100,6 +101,34 @@ void Scheduler::addProcess(const std::string& processName) {
         //           << memReq << " bytes memory requirement\n";
     } else {
         std::cout << "[Scheduler] Failed to allocate process " << processName << "\n";
+    }
+}
+
+void Scheduler::addProcessWithMemory(const std::string& processName, int memorySize) {
+    std::lock_guard<std::mutex> lock(schedulerMutex);
+
+    // Create new process with specified memory size
+    auto process = std::make_unique<Process>(processName, processCounter++);
+    
+    // Generate random instructions 
+    process->generateRandomInstructions(systemConfig.minInstructions, systemConfig.maxInstructions);
+    
+    // Set the specified memory requirement
+    process->memRequired = memorySize;
+    
+    // Try to allocate memory for the process
+    if (memoryManager.allocateProcess(process.get())) {
+        // Memory allocation successful
+        readyQueue.push(process.get());
+        allProcesses.push_back(std::move(process));
+        
+        std::cout << "[Scheduler] Process " << processName << " allocated with " 
+                  << memorySize << " bytes of memory.\n";
+    } else {
+        // Memory allocation failed
+        std::cout << "[Scheduler] Failed to allocate memory for process " << processName 
+                  << " - insufficient memory available.\n";
+        // process unique_ptr will automatically clean up when it goes out of scope
     }
 }
 

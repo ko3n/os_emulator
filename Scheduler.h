@@ -59,6 +59,9 @@ public:
     void schedulerTest();
     void schedulerStop();
     void addProcess(const std::string& processName);
+    
+    void addProcessWithMemory(const std::string& processName, int memorySize);
+    
     void printScreen();
     void screenProcess(const std::string& processName);
     void reportUtil();
