@@ -18,9 +18,9 @@ struct MemoryBlock {
 class MemoryManager {
     std::vector<MemoryBlock> blocks;
     size_t totalSize;
-    size_t memPerProc;
+    size_t memPerFrame;
 public:
-    MemoryManager(size_t total, size_t perProc);
+    MemoryManager(size_t total, size_t frameSize);
     bool allocate(Process* p);
     void free(Process* p);
     size_t getExternalFragmentation() const;

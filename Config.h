@@ -14,7 +14,8 @@ struct Config {
     // MO2 Parameters
     int maxOverallMem;
     int memPerFrame;
-    int memPerProc;
+    int minMemPerProc;
+    int maxMemPerProc;
 };
 
 extern Config systemConfig;

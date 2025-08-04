@@ -37,9 +37,10 @@ bool loadConfig(const std::string& filename) {
             file >> systemConfig.maxOverallMem;
         } else if (key == "mem-per-frame") {
             file >> systemConfig.memPerFrame;
-        } else if (key == "mem-per-proc") {
-            file >> systemConfig.memPerProc;
-
+        } else if (key == "min-mem-per-proc") {
+            file >> systemConfig.minMemPerProc;
+        } else if (key == "max-mem-per-proc") {
+            file >> systemConfig.maxMemPerProc;
         } else {
             std::cerr << "Unknown config key: " << key << "\n";
         }

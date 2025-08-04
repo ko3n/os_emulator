@@ -48,7 +48,8 @@ void initialize() {
         std::cout << "- delayPerExec: " << systemConfig.delayPerExec << "\n";
         std::cout << "- maxOverallMem: " << systemConfig.maxOverallMem << "\n";
         std::cout << "- memPerFrame: " << systemConfig.memPerFrame << "\n";
-        std::cout << "- memPerProc: " << systemConfig.memPerProc << "\n\n";
+        std::cout << "- minMemPerProc: " << systemConfig.minMemPerProc << "\n";
+        std::cout << "- maxMemPerProc: " << systemConfig.maxMemPerProc << "\n\n";
         
         // Initialize the scheduler
         if (globalScheduler) delete globalScheduler;

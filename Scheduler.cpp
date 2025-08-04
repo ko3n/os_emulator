@@ -16,7 +16,7 @@ CPUCore::CPUCore(int coreId) : id(coreId), currentProcess(nullptr), isRunning(fa
 
 // Scheduler implementation
 Scheduler::Scheduler() :
-    memoryManager(systemConfig.maxOverallMem, systemConfig.memPerProc),
+    memoryManager(systemConfig.maxOverallMem, systemConfig.memPerFrame),
     isInitialized(false),
     isRunning(false),
     isGeneratingProcesses(false),
@@ -74,6 +74,13 @@ void Scheduler::addProcess(const std::string& processName) {
 
     auto process = std::make_unique<Process>(processName, processCounter++);
     process->generateRandomInstructions(systemConfig.minInstructions, systemConfig.maxInstructions); // Generate process instructions
+    
+    // Assign random memory size M between min and max
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::uniform_int_distribution<> dis(systemConfig.minMemPerProc, systemConfig.maxMemPerProc);
+    process->memRequired = dis(gen);
+
     readyQueue.push(process.get()); // Push raw pointer to queue
     allProcesses.push_back(std::move(process)); // Transfer ownership to vector
     
@@ -376,12 +383,19 @@ void Scheduler::roundRobinSchedule() {
     for (auto& core : cores) {
         if (!core.currentProcess && !readyQueue.empty()) {
             // Assign new process to core
-            core.currentProcess = readyQueue.front();
+            Process *nextProc = readyQueue.front();
             readyQueue.pop();
-            core.currentProcess->state = ProcessState::RUNNING;
-            core.currentProcess->coreId = core.id;
-            core.isRunning = true;
-            core.currentQuantum = 0;
+            // Only schedule if process has memory
+            if (nextProc->hasMemory && !nextProc->isFinished) {
+                core.currentProcess = nextProc;
+                nextProc->state = ProcessState::RUNNING;
+                nextProc->coreId = core.id;
+                core.isRunning = true;
+                core.currentQuantum = 0;
+            } else {
+                // Put back in queue if no memory
+                readyQueue.push(nextProc);
+            }
         } else if (core.currentProcess && core.currentQuantum >= systemConfig.quantumCycles) {
             // Time slice expired, preempt process
             if (!core.currentProcess->isFinished) {
@@ -394,11 +408,16 @@ void Scheduler::roundRobinSchedule() {
             
             // Assign new process if available
             if (!readyQueue.empty()) {
-                core.currentProcess = readyQueue.front();
+                Process* nextProc = readyQueue.front();
                 readyQueue.pop();
-                core.currentProcess->state = ProcessState::RUNNING;
-                core.currentProcess->coreId = core.id;
-                core.isRunning = true;
+                if (nextProc->hasMemory && !nextProc->isFinished) {
+                    core.currentProcess = nextProc;
+                    nextProc->state = ProcessState::RUNNING;
+                    nextProc->coreId = core.id;
+                    core.isRunning = true;
+                } else {
+                    readyQueue.push(nextProc);
+                }
             }
         }
         
@@ -414,12 +433,16 @@ void Scheduler::fcfsSchedule(){
             Process* nextProc = readyQueue.front();
             readyQueue.pop();
 
-            nextProc->state = ProcessState::RUNNING;
-            nextProc->coreId = core.id;
-
-            core.currentProcess = nextProc;
-            core.isRunning = true;
-            //No quantum bookkeeping needed for FCFS
+            // Only schedule if process has memory
+            if (nextProc->hasMemory && !nextProc->isFinished) {
+                nextProc->state = ProcessState::RUNNING;
+                nextProc->coreId = core.id;
+                core.currentProcess = nextProc;
+                core.isRunning = true;
+            } else {
+                // Put back in queue if no memory
+                readyQueue.push(nextProc);
+            }
         }
     }
 }

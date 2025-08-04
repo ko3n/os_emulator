@@ -55,6 +55,7 @@ public:
     std::vector<int> forCounters;
     size_t memStart = 0;
     size_t memEnd = 0;
+    int memRequired; 
     
     Process(const std::string& processName, int processId);
     bool hasMemory = false;

@@ -9,17 +9,18 @@
 
 
 // Implementation of MemoryManager methods
-MemoryManager::MemoryManager(size_t total, size_t perProc) : totalSize(total), memPerProc(perProc) {
+MemoryManager::MemoryManager(size_t total, size_t frameSize) : totalSize(total), memPerFrame(frameSize) {
     blocks.push_back({0, totalSize, nullptr});
 }
 
 bool MemoryManager::allocate(Process* p) {
+    size_t requiredMem = p->memRequired;  // Use process's memory requirement
     for (auto it = blocks.begin(); it != blocks.end(); ++it) {
-        if (it->owner == nullptr && (it->end - it->start) >= memPerProc) {
-            size_t allocStart = it->end - memPerProc;
+        if (it->owner == nullptr && (it->end - it->start) >= requiredMem) {
+            size_t allocStart = it->end - requiredMem;
             size_t allocEnd = it->end;
             // Shrink free block
-            if ((it->end - it->start) == memPerProc) {
+            if ((it->end - it->start) == requiredMem) {
                 it->owner = p;
                 p->memStart = it->start;
                 p->memEnd = it->end;
@@ -73,7 +74,8 @@ void MemoryManager::free(Process* p) {
 size_t MemoryManager::getExternalFragmentation() const {
     size_t frag = 0;
     for (const auto& block : blocks) {
-        if (block.owner == nullptr && (block.end - block.start) < memPerProc) {
+        if (block.owner == nullptr) {
+            // Count all free blocks as potential fragmentation
             frag += (block.end - block.start);
         }
     }
