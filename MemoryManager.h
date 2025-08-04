@@ -73,6 +73,13 @@ public:
     // Legacy interface for compatibility
     bool allocate(Process* p) { return allocateProcess(p); }
     void free(Process* p) { deallocateProcess(p); }
+
+    uint16_t readWord(int physAddr) const {
+        return *reinterpret_cast<const uint16_t*>(&physicalMemory[physAddr]);
+    }
+    void writeWord(int physAddr, uint16_t value) {
+        *reinterpret_cast<uint16_t*>(&physicalMemory[physAddr]) = value;
+    }
 };
 
 void outputMemorySnapshot(const MemoryManager& mm, int quantumCycle);

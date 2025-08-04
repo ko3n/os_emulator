@@ -104,31 +104,17 @@ void Scheduler::addProcess(const std::string& processName) {
     }
 }
 
-void Scheduler::addProcessWithMemory(const std::string& processName, int memorySize) {
+void Scheduler::addProcessWithMemory(const std::string& processName, int memorySize, const std::vector<Instruction>& userInstructions) {
     std::lock_guard<std::mutex> lock(schedulerMutex);
-
-    // Create new process with specified memory size
     auto process = std::make_unique<Process>(processName, processCounter++);
-    
-    // Generate random instructions 
-    process->generateRandomInstructions(systemConfig.minInstructions, systemConfig.maxInstructions);
-    
-    // Set the specified memory requirement
+    process->instructions = userInstructions; 
     process->memRequired = memorySize;
-    
-    // Try to allocate memory for the process
     if (memoryManager.allocateProcess(process.get())) {
-        // Memory allocation successful
         readyQueue.push(process.get());
         allProcesses.push_back(std::move(process));
-        
-        std::cout << "[Scheduler] Process " << processName << " allocated with " 
-                  << memorySize << " bytes of memory.\n";
+        std::cout << "[Scheduler] Process " << processName << " allocated with " << memorySize << " bytes of memory.\n";
     } else {
-        // Memory allocation failed
-        std::cout << "[Scheduler] Failed to allocate memory for process " << processName 
-                  << " - insufficient memory available.\n";
-        // process unique_ptr will automatically clean up when it goes out of scope
+        std::cout << "[Scheduler] Failed to allocate memory for process " << processName << " - insufficient memory available.\n";
     }
 }
 
@@ -504,7 +490,6 @@ void Scheduler::fcfsSchedule(){
 
 void Scheduler::executeInstruction(CPUCore& core) {
     if (!core.currentProcess || core.currentProcess->isFinished) return;
-    
     Process* process = core.currentProcess;
     
     // Add memory access simulation that may cause page faults
@@ -526,7 +511,6 @@ void Scheduler::executeInstruction(CPUCore& core) {
     
     Instruction& instr = process->instructions[process->currentInstruction];
     instr.executedAt = std::chrono::system_clock::now();
-    
     switch (instr.type) {
         case InstructionType::PRINT:
             break;
@@ -564,6 +548,27 @@ void Scheduler::executeInstruction(CPUCore& core) {
                 }
             }
             break;
+        case InstructionType::READ: {
+            // Check symbol table size
+            if (process->variables.size() >= 32 && process->variables.find(instr.varName) == process->variables.end()) break;
+            uint16_t val = 0;
+            int physAddr = 0;
+            if (memoryManager.translateAddress(process, instr.memAddress, physAddr)) {
+                // Simulate memory read (assume physicalMemory is accessible)
+                val = memoryManager.readWord(physAddr);
+            }
+            process->variables[instr.varName] = val;
+            break;
+        }
+        case InstructionType::WRITE: {
+            int physAddr = 0;
+            uint16_t val = 0;
+            if (process->variables.count(instr.srcVar)) val = (uint16_t)process->variables[instr.srcVar];
+            if (memoryManager.translateAddress(process, instr.memAddress, physAddr)) {
+                memoryManager.writeWord(physAddr, val);
+            }
+            break;
+        }
     }
     
     process->currentInstruction++;

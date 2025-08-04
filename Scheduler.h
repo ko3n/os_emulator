@@ -60,7 +60,7 @@ public:
     void schedulerStop();
     void addProcess(const std::string& processName);
     
-    void addProcessWithMemory(const std::string& processName, int memorySize);
+    void addProcessWithMemory(const std::string& processName, int memorySize, const std::vector<Instruction>& userInstructions);
     
     void printScreen();
     void screenProcess(const std::string& processName);
