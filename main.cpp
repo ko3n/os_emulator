@@ -91,6 +91,32 @@ void reportUtil() {
     globalScheduler->reportUtil();
 }
 
+void vmstat() {
+    if (!isInitialized) {
+        std::cout << "Please run 'initialize' command first.\n";
+        return;
+    }
+    
+    auto& memManager = globalScheduler->getMemoryManager();
+    auto& scheduler = *globalScheduler;
+    
+    std::cout << "\n";
+    
+    // Memory information (in bytes as specified)
+    int totalMemory = systemConfig.maxOverallMem;
+    int usedMemory = memManager.getUsedFrames() * systemConfig.memPerFrame;
+    int freeMemory = totalMemory - usedMemory;
+    
+    std::cout << std::setw(12) << totalMemory << " K total memory\n";
+    std::cout << std::setw(12) << usedMemory << " K used memory\n";
+    std::cout << std::setw(12) << freeMemory << " K free memory\n";
+    std::cout << std::setw(12) << scheduler.getIdleCpuTicks() << " idle cpu ticks\n";
+    std::cout << std::setw(12) << scheduler.getActiveCpuTicks() << " active cpu ticks\n";
+    std::cout << std::setw(12) << scheduler.getTotalCpuTicks() << " total cpu ticks\n";
+    std::cout << std::setw(12) << scheduler.getNumPagedIn() << " num paged in\n";
+    std::cout << std::setw(12) << scheduler.getNumPagedOut() << " num paged out\n";
+}
+
 int main() {
     std::string userInput;
     printHeader();
@@ -129,6 +155,10 @@ int main() {
         else if (userInput == "report-util") {
             std::cout << "\n";
             reportUtil();
+        }
+        else if (userInput == "vmstat") {
+            std::cout << "\n";
+            vmstat();
         }
         else if (userInput.rfind("screen", 0) == 0) {
             handleScreenCommand(userInput);

@@ -28,7 +28,6 @@ class Scheduler {
 private:
     std::vector<CPUCore> cores;
     std::queue<Process*> readyQueue;
-    // std::vector<Process> allProcesses;
     std::vector<std::unique_ptr<Process>> allProcesses;
     std::mutex schedulerMutex;
     bool isInitialized;
@@ -39,6 +38,13 @@ private:
     std::chrono::system_clock::time_point startTime;
     int cpuTicks;
     MemoryManager memoryManager;
+    
+    // Add these statistics tracking variables:
+    long long idleCpuTicks = 0;
+    long long activeCpuTicks = 0;
+    long long totalCpuTicks = 0;
+    long long numPagedIn = 0;
+    long long numPagedOut = 0;
     
     void schedulingLoop();
     void roundRobinSchedule();
@@ -64,10 +70,19 @@ public:
     
     // Get process information for screen sessions
     Process* getProcess(const std::string& processName);
-    //std::vector<Process>& getAllProcesses() { return allProcesses; }
     std::vector<std::unique_ptr<Process>>& getAllProcesses() { return allProcesses; }
     MemoryManager& getMemoryManager() { return memoryManager; }
+    
+    // Add getters for vmstat statistics:
+    long long getIdleCpuTicks() const { return idleCpuTicks; }
+    long long getActiveCpuTicks() const { return activeCpuTicks; }
+    long long getTotalCpuTicks() const { return totalCpuTicks; }
+    long long getNumPagedIn() const { return numPagedIn; }
+    long long getNumPagedOut() const { return numPagedOut; }
+    
+    // Methods to increment paging stats (called by MemoryManager)
+    void incrementPagedIn() { numPagedIn++; }
+    void incrementPagedOut() { numPagedOut++; }
 };
-
 
 #endif

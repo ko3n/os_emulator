@@ -7,16 +7,11 @@
 #include <chrono>
 #include <iostream>
 #include <set>
-#include <functional> 
+#include <functional>
 
-// Forward declaration
+// Forward declarations
 class Process;
-
-struct MemoryBlock {
-    size_t start;
-    size_t end;
-    Process* owner; // nullptr if free
-};
+class Scheduler;  // Add this forward declaration
 
 struct Frame {
     int frameId;
@@ -37,18 +32,20 @@ class MemoryManager {
 private:
     std::vector<Frame> frames;
     std::map<Process*, std::vector<PageTableEntry>> pageTables;
-    std::vector<char> physicalMemory; // Simulate actual memory
+    std::vector<char> physicalMemory;
     
     int totalFrames;
     int frameSize;
     int totalMemory;
-    
-    // FIFO page replacement
     int fifoPointer;
+    Scheduler* scheduler;  // Change to pointer
     
 public:
-    MemoryManager(int totalMem, int frameSz); 
+    MemoryManager(int totalMem, int frameSz);
     ~MemoryManager();
+    
+    // Add method to set scheduler reference
+    void setScheduler(Scheduler* sched) { scheduler = sched; }
     
     // Core demand paging functions
     bool allocateProcess(Process* process);

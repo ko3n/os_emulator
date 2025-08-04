@@ -23,7 +23,10 @@ Scheduler::Scheduler() :
     isGeneratingProcesses(false),
     allProcessesFinishedMessageShown(false),
     processCounter(0),
-    cpuTicks(0) {}
+    cpuTicks(0),
+    totalCpuTicks(0),
+    activeCpuTicks(0),
+    idleCpuTicks(0) {}
 
 bool Scheduler::initialize() {
     cores.clear();
@@ -36,6 +39,10 @@ bool Scheduler::initialize() {
     std::cout << "Scheduler initialized with " << systemConfig.numCPU << " CPU cores.\n";
     std::cout << "Scheduler algorithm: " << systemConfig.scheduler << "\n";
     std::cout << "Quantum cycles: " << systemConfig.quantumCycles << "\n";
+
+    // Set up the link between memory manager and scheduler for statistics
+    memoryManager.setScheduler(this);
+    
     return true;
 }
 
@@ -301,15 +308,30 @@ Process* Scheduler::getProcess(const std::string& processName) {
 void Scheduler::schedulingLoop() {
     while (isRunning) {
         std::this_thread::sleep_for(std::chrono::milliseconds(18));
-        cpuTicks++;
+        
+        // Increment total CPU ticks for each cycle
+        totalCpuTicks++;
+        
         {
             std::lock_guard<std::mutex> lock(schedulerMutex);
+
+            // Count currently active cores
+            int currentActiveCores = 0;
+            for (const auto& core : cores) {
+                if (core.currentProcess) {
+                    currentActiveCores++;
+                }
+            }
+            
+            // Update CPU statistics
+            activeCpuTicks += currentActiveCores;
+            idleCpuTicks += (systemConfig.numCPU - currentActiveCores);
 
             // 1. Deallocate memory for finished processes and free cores
             for (auto& core : cores) {
                 if (core.currentProcess && core.currentProcess->isFinished) {
                     if (core.currentProcess->hasMemory) {
-                        memoryManager.deallocateProcess(core.currentProcess); // Fixed method name
+                        memoryManager.deallocateProcess(core.currentProcess);
                     }
                     core.currentProcess = nullptr;
                     core.isRunning = false;

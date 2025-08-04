@@ -1,5 +1,6 @@
 #include "MemoryManager.h"
 #include "Process.h"
+#include "Scheduler.h"  // Add this include
 #include <algorithm>
 #include <iostream>
 #include <fstream>
@@ -8,7 +9,7 @@
 #include <functional>  
 
 MemoryManager::MemoryManager(int totalMem, int frameSz) 
-    : totalMemory(totalMem), frameSize(frameSz), fifoPointer(0) {
+    : totalMemory(totalMem), frameSize(frameSz), fifoPointer(0), scheduler(nullptr) {
     
     totalFrames = totalMemory / frameSize;
     frames.resize(totalFrames);
@@ -82,18 +83,26 @@ bool MemoryManager::handlePageFault(Process* process, int virtualPageNumber) {
         return false; // Invalid page number
     }
     
-    // std::cout << "[PAGE FAULT] Process " << process->name 
-    //           << " accessing page " << virtualPageNumber << std::endl;
-    
     // Find free frame or select victim
     int frameNumber = findFreeFrame();
     if (frameNumber == -1) {
+        // No free frames, need to evict a page
         frameNumber = selectVictimFrame();
         evictPageToBackingStore(frameNumber);
+        
+        // Increment pages out counter
+        if (scheduler) {
+            scheduler->incrementPagedOut();
+        }
     }
     
     // Load page from backing store
     loadPageFromBackingStore(process, virtualPageNumber, frameNumber);
+    
+    // Increment pages in counter
+    if (scheduler) {
+        scheduler->incrementPagedIn();
+    }
     
     // Update page table
     pageTables[process][virtualPageNumber].frameNumber = frameNumber;
