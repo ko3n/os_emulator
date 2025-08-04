@@ -86,6 +86,8 @@ public:
     // Methods to increment paging stats (called by MemoryManager)
     void incrementPagedIn() { numPagedIn++; }
     void incrementPagedOut() { numPagedOut++; }
+    
+    void processSmi();
 };
 
 #endif

@@ -100,8 +100,6 @@ void vmstat() {
     auto& memManager = globalScheduler->getMemoryManager();
     auto& scheduler = *globalScheduler;
     
-    std::cout << "\n";
-    
     // Memory information (in bytes as specified)
     int totalMemory = systemConfig.maxOverallMem;
     int usedMemory = memManager.getUsedFrames() * systemConfig.memPerFrame;
@@ -159,6 +157,10 @@ int main() {
         else if (userInput == "vmstat") {
             std::cout << "\n";
             vmstat();
+        }
+        else if (userInput == "process-smi") {
+            std::cout << "\n";
+            globalScheduler->processSmi();
         }
         else if (userInput.rfind("screen", 0) == 0) {
             handleScreenCommand(userInput);

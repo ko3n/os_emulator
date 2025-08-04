@@ -599,3 +599,25 @@ int Scheduler::getActiveCores() {
     }
     return active;
 }
+
+void Scheduler::processSmi() {
+    std::lock_guard<std::mutex> lock(schedulerMutex);
+
+    int totalMem = systemConfig.maxOverallMem;
+    int usedMem = memoryManager.getUsedFrames() * systemConfig.memPerFrame;
+    int freeMem = totalMem - usedMem;
+    double memUtil = (double)usedMem / totalMem * 100.0;
+    double cpuUtil = calculateCPUUtilization();
+
+    std::cout << "\n";
+    std::cout << "CPU-Util: " << (int)cpuUtil << "%\n";
+    std::cout << "Memory Usage: " << usedMem / 1024 << "MiB / " << totalMem / 1024 << "MiB\n";
+    std::cout << "Memory Util: " << (int)memUtil << "%\n";
+    std::cout << "----------------------------------------\n";
+    std::cout << "Running processes and memory usage:\n\n";
+    for (const auto& proc : allProcesses) {
+        if (!proc->isFinished && proc->hasMemory)
+            std::cout << proc->name << " " << proc->memRequired / 1024 << "MiB\n";
+    }
+    std::cout << "\n";
+}

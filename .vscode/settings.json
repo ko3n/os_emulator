@@ -61,7 +61,9 @@
         "codecvt": "cpp",
         "condition_variable": "cpp",
         "cstdarg": "cpp",
-        "mutex": "cpp"
+        "mutex": "cpp",
+        "cstring": "cpp",
+        "set": "cpp"
     },
     "C_Cpp.default.compilerPath": "C:/msys64/ucrt64/bin/g++.exe"
 }
