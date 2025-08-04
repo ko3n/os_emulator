@@ -10,7 +10,6 @@
 #include <chrono>
 #include <memory>
 #include "Process.h"
-#include "MemoryManager.h"
 #include "DemandPagingManager.h"
 
 // CPU Core class
@@ -39,7 +38,6 @@ private:
     int processCounter;
     std::chrono::system_clock::time_point startTime;
     int cpuTicks;
-    MemoryManager memoryManager;
     
     void schedulingLoop();
     void roundRobinSchedule();

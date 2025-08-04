@@ -1,6 +1,5 @@
 #include "Scheduler.h"
 #include "Config.h"
-#include "MemoryManager.h"
 #include <iostream>
 #include <fstream>
 #include <sstream>
@@ -10,13 +9,25 @@
 #include <filesystem>
 #include <ctime>
 
+// Set this to true to enable debug output, false to disable
+static const bool DEBUG_MODE = true;
+static const char* DEBUG_LOG_FILE = "debug.log";
+
+// Utility function for debug logging
+void debug_log(const std::string& msg) {
+    if (DEBUG_MODE) {
+        std::ofstream debugOut(DEBUG_LOG_FILE, std::ios::app); // Append mode
+        if (debugOut.is_open()) {
+            debugOut << msg << std::endl;
+        }
+    }
+}
 
 // CPUCore implementation
 CPUCore::CPUCore(int coreId) : id(coreId), currentProcess(nullptr), isRunning(false), currentQuantum(0) {}
 
 // Scheduler implementation
 Scheduler::Scheduler() :
-    memoryManager(systemConfig.maxOverallMem, systemConfig.memPerFrame),
     pagingManager(systemConfig.maxOverallMem / systemConfig.memPerFrame, systemConfig.memPerFrame),
     isInitialized(false),
     isRunning(false),
@@ -30,7 +41,7 @@ bool Scheduler::initialize() {
     for (int i = 0; i < systemConfig.numCPU; i++) {
         cores.emplace_back(i);
     }
-    
+
     isInitialized = true;
     startTime = std::chrono::system_clock::now();
     std::cout << "Scheduler initialized with " << systemConfig.numCPU << " CPU cores.\n";
@@ -44,63 +55,72 @@ void Scheduler::schedulerTest() {
         std::cout << "Please initialize the scheduler first.\n";
         return;
     }
-    
+
     isRunning = true;
     isGeneratingProcesses = true;
-    allProcessesFinishedMessageShown = false; // Reset flag when starting
+    allProcessesFinishedMessageShown = false;
     std::cout << "Scheduler started.\n";
-    
-    // COMMENTED OUT FOR NOW
-    // Immediately create 4 processes at startup 
-    // for (int i = 0; i < 4; ++i) {
-    //    std::string processName = "process" + std::to_string(i);
-    //    addProcess(processName);
-    //}
+
+    // Clear debug log on start
+    if (DEBUG_MODE) {
+        std::ofstream debugOut(DEBUG_LOG_FILE, std::ios::trunc);
+        if (debugOut.is_open()) {
+            debugOut << "[DEBUG] Scheduler started\n";
+        }
+    }
 
     std::thread schedulingThread(&Scheduler::schedulingLoop, this);
     schedulingThread.detach();
 
-    // Continue generating more processes as before
     std::thread processGenThread(&Scheduler::processGenerationLoop, this);
     processGenThread.detach();
 }
 
 void Scheduler::schedulerStop() {
     isGeneratingProcesses = false;
+    isRunning = false;
     std::cout << "Scheduler stopped.\n";
+    debug_log("[DEBUG] Scheduler stopped");
 }
 
 void Scheduler::addProcess(const std::string& processName) {
     std::lock_guard<std::mutex> lock(schedulerMutex);
 
     auto process = std::make_unique<Process>(processName, processCounter++);
-    process->generateRandomInstructions(systemConfig.minInstructions, systemConfig.maxInstructions); // Generate process instructions
-    
-    // Assign random memory size M between min and max
+    process->generateRandomInstructions(systemConfig.minInstructions, systemConfig.maxInstructions);
+
     std::random_device rd;
     std::mt19937 gen(rd());
     std::uniform_int_distribution<> dis(systemConfig.minMemPerProc, systemConfig.maxMemPerProc);
     process->memRequired = dis(gen);
 
     pagingManager.allocateProcess(process.get(), process->memRequired);
+    if (DEBUG_MODE) {
+        std::ostringstream oss;
+        oss << "[DEBUG] Allocated page table for process " << process->name << " (PID " << process->id << "), memRequired: " << process->memRequired;
+        debug_log(oss.str());
 
-    readyQueue.push(process.get()); // Push raw pointer to queue
-    allProcesses.push_back(std::move(process)); // Transfer ownership to vector
-    
+        std::ostringstream oss2;
+        pagingManager.printState(oss2);
+        debug_log(oss2.str());
+    }
+
+    readyQueue.push(process.get());
+    allProcesses.push_back(std::move(process));
 }
 
 void Scheduler::printScreen() {
     std::lock_guard<std::mutex> lock(schedulerMutex);
-    
-    std::cout << "\n";    
+
+    std::cout << "\n";
     auto now = std::chrono::system_clock::now();
     auto time_t = std::chrono::system_clock::to_time_t(now);
     std::cout << "Last updated: " << std::put_time(std::localtime(&time_t), "%m/%d/%Y") << "\n\n";
-    
+
     std::cout << "CPU utilization: " << calculateCPUUtilization() << "%\n";
     std::cout << "Cores used: " << getActiveCores() << "\n";
     std::cout << "Cores available: " << (systemConfig.numCPU - getActiveCores()) << "\n\n";
-    
+
     std::cout << "----------------------------------------\n";
     std::cout << "Running processes:\n";
     for (const auto& core : cores) {
@@ -108,16 +128,12 @@ void Scheduler::printScreen() {
             auto process = core.currentProcess;
             auto currentTime = std::chrono::system_clock::now();
             auto time_t = std::chrono::system_clock::to_time_t(process->creationTime);
-            
-            // Format timestamp into string
+
             std::ostringstream timeStream;
             timeStream << "(" << std::put_time(std::localtime(&time_t), "%m/%d/%Y %I:%M:%S %p") << ")";
             std::string timeStr = timeStream.str();
 
-            // Format core info
             std::string coreStr = "Core: " + std::to_string(core.id);
-
-            // Format instruction progress
             std::string progressStr = std::to_string(process->currentInstruction) + " / " + std::to_string(process->instructions.size());
 
             std::cout << std::left
@@ -128,8 +144,7 @@ void Scheduler::printScreen() {
                       << "\n";
         }
     }
-    
-    // Show waiting for memory processes (skip those running on a core)
+
     for (const auto& processPtr : allProcesses) {
         const Process* process = processPtr.get();
         if (process->isFinished) continue;
@@ -166,12 +181,10 @@ void Scheduler::printScreen() {
     for (const Process* process : finishedProcesses) {
         auto time_t = std::chrono::system_clock::to_time_t(process->finishTime);
 
-        // Format timestamp into string 
         std::ostringstream timeStream;
         timeStream << "(" << std::put_time(std::localtime(&time_t), "%m/%d/%Y %I:%M:%S %p") << ")";
         std::string timeStr = timeStream.str();
 
-        // Format instruction progress
         std::string progressStr = std::to_string(process->instructions.size()) + " / " + std::to_string(process->instructions.size());
 
         std::cout << std::left
@@ -179,22 +192,29 @@ void Scheduler::printScreen() {
                   << std::setw(28) << timeStr
                   << std::setw(12) << "Finished"
                   << std::setw(10) << progressStr
-                  << "\n";        
+                  << "\n";
     }
 
     std::cout << "----------------------------------------\n";
+
+    if (DEBUG_MODE) {
+        std::ostringstream oss;
+        oss << "[DEBUG] Paging manager state:";
+        pagingManager.printState(oss);
+        debug_log(oss.str());
+    }
 }
 
 void Scheduler::reportUtil() {
     std::lock_guard<std::mutex> lock(schedulerMutex);
-    
+
     std::ofstream report("csopesy-log.txt");
     if (report.is_open()) {
         report << "CPU Utilization Report\n";
         report << "CPU utilization: " << calculateCPUUtilization() << "%\n";
         report << "Cores used: " << getActiveCores() << "\n";
         report << "Cores available: " << (systemConfig.numCPU - getActiveCores()) << "\n\n";
-        
+
         report << "Running processes:\n";
         for (const auto& core : cores) {
             if (core.currentProcess) {
@@ -202,13 +222,12 @@ void Scheduler::reportUtil() {
                 auto currentTime = std::chrono::system_clock::now();
                 auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
                     currentTime - process->creationTime).count();
-                report << process->name << "   " 
-                      << " (" << elapsed/1000.0 << "s)   " << "Core: " << core.id 
+                report << process->name << "   "
+                      << " (" << elapsed/1000.0 << "s)   " << "Core: " << core.id
                       << "   " << process->currentInstruction << " / " << process->instructions.size() << "\n";
             }
         }
-        
-        // Show waiting for memory processes (skip those running on a core)
+
         for (const auto& processPtr : allProcesses) {
             const Process* process = processPtr.get();
             if (process->isFinished) continue;
@@ -245,10 +264,9 @@ void Scheduler::reportUtil() {
         for (const Process* process : finishedProcesses) {
             auto time_t = std::chrono::system_clock::to_time_t(process->finishTime);
 
-            // Format timestamp into string
             std::ostringstream timeStream;
             timeStream << "(" << std::put_time(std::localtime(&time_t), "%m/%d/%Y %I:%M:%S %p") << ")";
-            
+
             report << std::left
                    << std::setw(12) << process->name
                    << std::setw(28) << timeStream.str()
@@ -256,9 +274,15 @@ void Scheduler::reportUtil() {
                    << std::setw(10) << (std::to_string(process->instructions.size()) + " / " + std::to_string(process->instructions.size()))
                    << "\n";
         }
-        
+
+        if (DEBUG_MODE) {
+            std::ostringstream oss;
+            oss << "[DEBUG] Paging manager state:";
+            pagingManager.printState(oss);
+            debug_log(oss.str());
+        }
+
         report.close();
-        //std::cout << "Report generated at csopesy-log.txt\n";
         std::filesystem::path filePath = std::filesystem::absolute("csopesy-log.txt");
         std::cout << "Report generated at: " << filePath << "\n";
     }
@@ -266,7 +290,7 @@ void Scheduler::reportUtil() {
 
 Process* Scheduler::getProcess(const std::string& processName) {
     std::lock_guard<std::mutex> lock(schedulerMutex);
-    
+
     for (auto& processPtr : allProcesses) {
         if (processPtr->name == processName) {
             return processPtr.get();
@@ -285,10 +309,17 @@ void Scheduler::schedulingLoop() {
             // 1. Deallocate memory for finished processes and free cores
             for (auto& core : cores) {
                 if (core.currentProcess && core.currentProcess->isFinished) {
-                    if (core.currentProcess->hasMemory) {
-                        memoryManager.free(core.currentProcess);
-                        pagingManager.freeProcess(core.currentProcess);
+                    pagingManager.freeProcess(core.currentProcess);
+                    if (DEBUG_MODE) {
+                        std::ostringstream oss;
+                        oss << "[DEBUG] Freed page table for process " << core.currentProcess->name << " (PID " << core.currentProcess->id << ")";
+                        debug_log(oss.str());
+
+                        std::ostringstream oss2;
+                        pagingManager.printState(oss2);
+                        debug_log(oss2.str());
                     }
+
                     core.currentProcess = nullptr;
                     core.isRunning = false;
                     core.currentQuantum = 0;
@@ -300,10 +331,6 @@ void Scheduler::schedulingLoop() {
             while (!readyQueue.empty()) {
                 Process* proc = readyQueue.front();
                 readyQueue.pop();
-                if (!proc->hasMemory && !proc->isFinished) {
-                    // Optionally print debug info
-                    memoryManager.allocate(proc);
-                }
                 tempQueue.push(proc);
             }
             readyQueue = tempQueue;
@@ -322,13 +349,12 @@ void Scheduler::schedulingLoop() {
                     executeInstruction(core);
                 }
             }
-            
+
             // Check if all processes are finished
             if (!allProcessesFinishedMessageShown && !allProcesses.empty()) {
                 bool allFinished = true;
                 bool hasRunningProcesses = false;
-                
-                // Check if any process is still running or in ready queue
+
                 for (const auto& processPtr : allProcesses) {
                     const Process& process = *processPtr;
                     if (!process.isFinished) {
@@ -336,28 +362,26 @@ void Scheduler::schedulingLoop() {
                         break;
                     }
                 }
-                
-                // Check if any core has a running process
+
                 for (const auto& core : cores) {
                     if (core.currentProcess) {
                         hasRunningProcesses = true;
                         break;
                     }
                 }
-                
-                // Check if ready queue is empty
+
                 bool readyQueueEmpty = readyQueue.empty();
-                
+
                 if (allFinished && !hasRunningProcesses && readyQueueEmpty) {
                     std::cout << "\n=== All processes have finished execution ===\n";
                     std::cout << "Scheduler is still running. Use 'screen -ls' to view process summary.\n";
                     std::cout << "Type 'scheduler-stop' to stop the scheduler or 'exit' to quit.\n\n>";
                     allProcessesFinishedMessageShown = true;
+                    debug_log("[DEBUG] All processes finished execution");
                 }
             }
 
-            // After all scheduling and execution logic, output memory snapshot every quantum cycle
-            // Only output memory snapshot if not all processes are finished
+            // Print paging manager state every 100 quantum cycles if debug enabled
             bool allFinished = true;
             for (const auto& processPtr : allProcesses) {
                 if (!processPtr->isFinished) {
@@ -373,10 +397,13 @@ void Scheduler::schedulingLoop() {
                 }
             }
             bool readyQueueEmpty = readyQueue.empty();
-            if (!allFinished || hasRunningProcesses || !readyQueueEmpty) {
-                if (cpuTicks > 0 && ((cpuTicks - 1) % systemConfig.quantumCycles == 0)) {
+            if (DEBUG_MODE && (!allFinished || hasRunningProcesses || !readyQueueEmpty)) {
+                if (cpuTicks > 0 && ((cpuTicks - 1) % 100 == 0)) { // Only every 100 cycles
                     int quantumNum = (cpuTicks - 1) / systemConfig.quantumCycles + 1;
-                    outputMemorySnapshot(memoryManager, quantumNum);
+                    std::ostringstream oss;
+                    oss << "[DEBUG] Paging manager state at quantum " << quantumNum << ":";
+                    pagingManager.printState(oss);
+                    debug_log(oss.str());
                 }
             }
         }
@@ -386,10 +413,8 @@ void Scheduler::schedulingLoop() {
 void Scheduler::roundRobinSchedule() {
     for (auto& core : cores) {
         if (!core.currentProcess && !readyQueue.empty()) {
-            // Assign new process to core
             Process *nextProc = readyQueue.front();
             readyQueue.pop();
-            // Only schedule if process has memory
             if (nextProc->hasMemory && !nextProc->isFinished) {
                 core.currentProcess = nextProc;
                 nextProc->state = ProcessState::RUNNING;
@@ -397,11 +422,9 @@ void Scheduler::roundRobinSchedule() {
                 core.isRunning = true;
                 core.currentQuantum = 0;
             } else {
-                // Put back in queue if no memory
                 readyQueue.push(nextProc);
             }
         } else if (core.currentProcess && core.currentQuantum >= systemConfig.quantumCycles) {
-            // Time slice expired, preempt process
             if (!core.currentProcess->isFinished) {
                 core.currentProcess->state = ProcessState::READY;
                 readyQueue.push(core.currentProcess);
@@ -409,8 +432,7 @@ void Scheduler::roundRobinSchedule() {
             core.currentProcess = nullptr;
             core.isRunning = false;
             core.currentQuantum = 0;
-            
-            // Assign new process if available
+
             if (!readyQueue.empty()) {
                 Process* nextProc = readyQueue.front();
                 readyQueue.pop();
@@ -424,7 +446,7 @@ void Scheduler::roundRobinSchedule() {
                 }
             }
         }
-        
+
         if (core.currentProcess) {
             core.currentQuantum++;
         }
@@ -437,14 +459,12 @@ void Scheduler::fcfsSchedule(){
             Process* nextProc = readyQueue.front();
             readyQueue.pop();
 
-            // Only schedule if process has memory
             if (nextProc->hasMemory && !nextProc->isFinished) {
                 nextProc->state = ProcessState::RUNNING;
                 nextProc->coreId = core.id;
                 core.currentProcess = nextProc;
                 core.isRunning = true;
             } else {
-                // Put back in queue if no memory
                 readyQueue.push(nextProc);
             }
         }
@@ -453,24 +473,29 @@ void Scheduler::fcfsSchedule(){
 
 void Scheduler::executeInstruction(CPUCore& core) {
     if (!core.currentProcess || core.currentProcess->isFinished) return;
-    
+
     Process* process = core.currentProcess;
-    
+
     if (process->currentInstruction >= process->instructions.size()) {
         process->isFinished = true;
         process->state = ProcessState::FINISHED;
         process->finishTime = std::chrono::system_clock::now();
-        // std::cout << "\n" << process->name << " has finished execution.\n>";
         return;
     }
-    
-    // const Instruction& instr = process->instructions[process->currentInstruction];
+
     Instruction& instr = process->instructions[process->currentInstruction];
     instr.executedAt = std::chrono::system_clock::now();
 
-    size_t virtualAddr = process->currentInstruction * systemConfig.memPerFrame; 
-    pagingManager.accessPage(process, virtualAddr, /*isWrite=*/(instr.type == InstructionType::ADD || instr.type == InstructionType::SUBTRACT));
-    
+    size_t virtualAddr = process->currentInstruction * systemConfig.memPerFrame;
+    bool isWrite = (instr.type == InstructionType::ADD || instr.type == InstructionType::SUBTRACT);
+    if (DEBUG_MODE) {
+        std::ostringstream oss;
+        oss << "[DEBUG] Process " << process->name << " (PID " << process->id << ") executing instruction "
+            << process->currentInstruction << " at virtual address " << virtualAddr << (isWrite ? " [WRITE]" : " [READ]");
+        debug_log(oss.str());
+    }
+    pagingManager.accessPage(process, virtualAddr, isWrite);
+
     switch (instr.type) {
         case InstructionType::PRINT:
             break;
@@ -499,7 +524,7 @@ void Scheduler::executeInstruction(CPUCore& core) {
                 int forStart = process->forStack.back();
                 int& counter = process->forCounters.back();
                 counter++;
-                
+
                 if (counter < process->instructions[forStart].value) {
                     process->currentInstruction = forStart;
                 } else {
@@ -509,20 +534,20 @@ void Scheduler::executeInstruction(CPUCore& core) {
             }
             break;
     }
-    
+
     process->currentInstruction++;
-    
+
     if (systemConfig.delayPerExec > 0) {
         std::this_thread::sleep_for(std::chrono::milliseconds(systemConfig.delayPerExec));
     }
 }
 
 void Scheduler::processGenerationLoop() {
-    int automaticProcessCounter = 0; // separate counter for dummy processes
+    int automaticProcessCounter = 0;
 
     while (isGeneratingProcesses) {
         std::this_thread::sleep_for(std::chrono::seconds(systemConfig.batchProcessFreq));
-        
+
         if (isGeneratingProcesses) {
             std::string processName = "process" + std::to_string(automaticProcessCounter);
             automaticProcessCounter++;
