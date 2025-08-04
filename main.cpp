@@ -23,12 +23,15 @@ void printHeader() {
     std::cout << "\033[32mHello, Welcome to CSOPESY commandline!\033[0m\n";
     std::cout << "\033[33mType 'exit' to quit, 'clear' to clear the screen\033[0m\n\n";
     std::cout << "\033[34mUse: 'initialize' to initialize the processor configuration\033[0m\n";
-    std::cout << "\033[34m     'screen -s <name>' to start a screen\033[0m\n";
+    std::cout << "\033[34m     'screen -s <name> <memory size> <instructions>' to start a screen\033[0m\n";
+    std::cout << "\033[34m     'screen -c <name> <memory size>' to create a process with a custom set of instructions\033[0m\n";
     std::cout << "\033[34m     'screen -r <name>' to resume a screen\033[0m\n";
     std::cout << "\033[34m     'screen -ls' to list all processes\033[0m\n";
     std::cout << "\033[34m     'scheduler-test' to start the scheduler\033[0m\n";
     std::cout << "\033[34m     'scheduler-stop' to stop the scheduler\033[0m\n";
     std::cout << "\033[34m     'report-util' to generate CPU utilization report\033[0m\n";
+    std::cout << "\033[34m     'process-smi' to provide a high-level overview of available/used memory\033[0m\n";
+    std::cout << "\033[34m     'vmstat' to provide fine-grained memory details\033[0m\n";
 }
 
 void clearScreen() {
