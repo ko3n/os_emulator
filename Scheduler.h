@@ -11,6 +11,7 @@
 #include <memory>
 #include "Process.h"
 #include "MemoryManager.h"
+#include "DemandPagingManager.h"
 
 // CPU Core class
 class CPUCore {
@@ -45,6 +46,7 @@ private:
     void fcfsSchedule();
     void executeInstruction(CPUCore& core);
     void processGenerationLoop();
+    DemandPagingManager pagingManager;
     
 public:
     Scheduler();

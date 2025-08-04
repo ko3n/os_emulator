@@ -17,6 +17,7 @@ CPUCore::CPUCore(int coreId) : id(coreId), currentProcess(nullptr), isRunning(fa
 // Scheduler implementation
 Scheduler::Scheduler() :
     memoryManager(systemConfig.maxOverallMem, systemConfig.memPerFrame),
+    pagingManager(systemConfig.maxOverallMem / systemConfig.memPerFrame, systemConfig.memPerFrame),
     isInitialized(false),
     isRunning(false),
     isGeneratingProcesses(false),
@@ -80,6 +81,8 @@ void Scheduler::addProcess(const std::string& processName) {
     std::mt19937 gen(rd());
     std::uniform_int_distribution<> dis(systemConfig.minMemPerProc, systemConfig.maxMemPerProc);
     process->memRequired = dis(gen);
+
+    pagingManager.allocateProcess(process.get(), process->memRequired);
 
     readyQueue.push(process.get()); // Push raw pointer to queue
     allProcesses.push_back(std::move(process)); // Transfer ownership to vector
@@ -284,6 +287,7 @@ void Scheduler::schedulingLoop() {
                 if (core.currentProcess && core.currentProcess->isFinished) {
                     if (core.currentProcess->hasMemory) {
                         memoryManager.free(core.currentProcess);
+                        pagingManager.freeProcess(core.currentProcess);
                     }
                     core.currentProcess = nullptr;
                     core.isRunning = false;
@@ -463,6 +467,9 @@ void Scheduler::executeInstruction(CPUCore& core) {
     // const Instruction& instr = process->instructions[process->currentInstruction];
     Instruction& instr = process->instructions[process->currentInstruction];
     instr.executedAt = std::chrono::system_clock::now();
+
+    size_t virtualAddr = process->currentInstruction * systemConfig.memPerFrame; 
+    pagingManager.accessPage(process, virtualAddr, /*isWrite=*/(instr.type == InstructionType::ADD || instr.type == InstructionType::SUBTRACT));
     
     switch (instr.type) {
         case InstructionType::PRINT:
