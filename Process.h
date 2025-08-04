@@ -55,11 +55,15 @@ public:
     std::vector<int> forCounters;
     size_t memStart = 0;
     size_t memEnd = 0;
-    int memRequired; 
+    int memRequired;        // Total memory needed by process
+    int currentMemoryPage;  // Current page being accessed
+    bool hasMemory;         // Has page table been created
     
     Process(const std::string& processName, int processId);
-    bool hasMemory = false;
     void generateRandomInstructions(int minIns, int maxIns);
+    
+    // Memory access simulation for demand paging
+    void accessRandomMemory(); // Simulate memory access causing page faults
 };
 
 #endif

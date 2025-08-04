@@ -1,151 +1,256 @@
 #include "MemoryManager.h"
-#include <vector>
-#include <cstddef>
+#include "Process.h"
+#include <algorithm>
 #include <iostream>
 #include <fstream>
 #include <iomanip>
-#include <ctime>
-#include <algorithm>
+#include <set>
+#include <functional>  
 
-
-// Implementation of MemoryManager methods
-MemoryManager::MemoryManager(size_t total, size_t frameSize) : totalSize(total), memPerFrame(frameSize) {
-    blocks.push_back({0, totalSize, nullptr});
-}
-
-bool MemoryManager::allocate(Process* p) {
-    size_t requiredMem = p->memRequired;  // Use process's memory requirement
-    for (auto it = blocks.begin(); it != blocks.end(); ++it) {
-        if (it->owner == nullptr && (it->end - it->start) >= requiredMem) {
-            size_t allocStart = it->end - requiredMem;
-            size_t allocEnd = it->end;
-            // Shrink free block
-            if ((it->end - it->start) == requiredMem) {
-                it->owner = p;
-                p->memStart = it->start;
-                p->memEnd = it->end;
-            } else {
-                // Split block
-                MemoryBlock allocBlock = {allocStart, allocEnd, p};
-                it->end = allocStart;
-                blocks.insert(it + 1, allocBlock);
-                p->memStart = allocStart;
-                p->memEnd = allocEnd;
-            }
-            p->hasMemory = true;
-            // Debug output: print block list after allocation
-            // std::cout << "[MemoryManager] After allocating " << p->name << ":\n";
-            // for (const auto& block : blocks) {
-            //     std::cout << "  Block: [" << block.start << ", " << block.end << "] " << (block.owner ? block.owner->name : "FREE") << "\n";
-            // }
-            return true;
-        }
-    }
-    p->hasMemory = false;
-    // Debug output: allocation failed
-    // std::cout << "[MemoryManager] Allocation failed for " << p->name << "\n";
-    return false;
-}
-
-void MemoryManager::free(Process* p) {
-    for (auto it = blocks.begin(); it != blocks.end(); ++it) {
-        if (it->owner == p) {
-            it->owner = nullptr;
-            p->hasMemory = false;
-            // Merge with previous free block
-            if (it != blocks.begin()) {
-                auto prev = it - 1;
-                if (prev->owner == nullptr) {
-                    prev->end = it->end;
-                    it = blocks.erase(it);
-                    --it;
-                }
-            }
-            // Merge with next free block
-            if ((it + 1) != blocks.end() && (it + 1)->owner == nullptr) {
-                it->end = (it + 1)->end;
-                blocks.erase(it + 1);
-            }
-            break;
-        }
+MemoryManager::MemoryManager(int totalMem, int frameSz) 
+    : totalMemory(totalMem), frameSize(frameSz), fifoPointer(0) {
+    
+    totalFrames = totalMemory / frameSize;
+    frames.resize(totalFrames);
+    physicalMemory.resize(totalMemory, 0);
+    
+    // Initialize frames
+    for (int i = 0; i < totalFrames; i++) {
+        frames[i].frameId = i;
+        frames[i].owner = nullptr;
+        frames[i].virtualPageNumber = -1;
+        frames[i].isOccupied = false;
+        frames[i].isDirty = false;
     }
 }
 
-size_t MemoryManager::getExternalFragmentation() const {
-    size_t frag = 0;
-    for (const auto& block : blocks) {
-        if (block.owner == nullptr) {
-            // Count all free blocks as potential fragmentation
-            frag += (block.end - block.start);
-        }
-    }
-    return frag;
+MemoryManager::~MemoryManager() {
+    // Clean up
 }
 
-int MemoryManager::getNumProcessesInMemory() const {
+bool MemoryManager::allocateProcess(Process* process) {
+    if (!process) return false;
+    
+    // Calculate number of pages needed
+    int pagesNeeded = (process->memRequired + frameSize - 1) / frameSize;
+    
+    // Create page table for process 
+    pageTables[process].resize(pagesNeeded);
+    
+    // Initialize page table entries as invalid (not in memory)
+    for (int i = 0; i < pagesNeeded; i++) {
+        pageTables[process][i].frameNumber = -1;
+        pageTables[process][i].isValid = false;
+        pageTables[process][i].isDirty = false;
+        pageTables[process][i].isReferenced = false;
+    }
+    
+    process->hasMemory = true;
+    // std::cout << "[MemoryManager] Process " << process->name 
+    //           << " allocated page table with " << pagesNeeded << " pages (no pages loaded yet)\n";
+    return true;
+}
+
+void MemoryManager::deallocateProcess(Process* process) {
+    if (!process || pageTables.find(process) == pageTables.end()) {
+        return;
+    }
+    
+    // Free all frames used by this process
+    for (int i = 0; i < totalFrames; i++) {
+        if (frames[i].owner == process) {
+            frames[i].owner = nullptr;
+            frames[i].virtualPageNumber = -1;
+            frames[i].isOccupied = false;
+            frames[i].isDirty = false;
+        }
+    }
+    
+    // Remove page table
+    pageTables.erase(process);
+    process->hasMemory = false;
+    
+    // std::cout << "[MemoryManager] Process " << process->name << " deallocated\n";
+}
+
+bool MemoryManager::handlePageFault(Process* process, int virtualPageNumber) {
+    if (pageTables.find(process) == pageTables.end()) {
+        return false;
+    }
+    
+    if (virtualPageNumber >= pageTables[process].size()) {
+        return false; // Invalid page number
+    }
+    
+    // std::cout << "[PAGE FAULT] Process " << process->name 
+    //           << " accessing page " << virtualPageNumber << std::endl;
+    
+    // Find free frame or select victim
+    int frameNumber = findFreeFrame();
+    if (frameNumber == -1) {
+        frameNumber = selectVictimFrame();
+        evictPageToBackingStore(frameNumber);
+    }
+    
+    // Load page from backing store
+    loadPageFromBackingStore(process, virtualPageNumber, frameNumber);
+    
+    // Update page table
+    pageTables[process][virtualPageNumber].frameNumber = frameNumber;
+    pageTables[process][virtualPageNumber].isValid = true;
+    pageTables[process][virtualPageNumber].isReferenced = true;
+    
+    // Update frame info
+    frames[frameNumber].owner = process;
+    frames[frameNumber].virtualPageNumber = virtualPageNumber;
+    frames[frameNumber].isOccupied = true;
+    
+    // std::cout << "[PAGE LOADED] Page " << virtualPageNumber << " of " << process->name 
+    //           << " loaded into frame " << frameNumber << std::endl;
+    
+    return true;
+}
+
+bool MemoryManager::translateAddress(Process* process, int virtualAddress, int& physicalAddress) {
+    if (pageTables.find(process) == pageTables.end()) {
+        return false;
+    }
+    
+    int pageNumber = virtualAddress / frameSize;
+    int offset = virtualAddress % frameSize;
+    
+    if (pageNumber >= pageTables[process].size()) {
+        return false; // Invalid address
+    }
+    
+    // Check if page is in memory
+    if (!pageTables[process][pageNumber].isValid) {
+        // Page fault - load page
+        if (!handlePageFault(process, pageNumber)) {
+            return false;
+        }
+    }
+    
+    // Update reference bit
+    pageTables[process][pageNumber].isReferenced = true;
+    
+    int frameNumber = pageTables[process][pageNumber].frameNumber;
+    physicalAddress = frameNumber * frameSize + offset;
+    return true;
+}
+
+int MemoryManager::findFreeFrame() {
+    for (int i = 0; i < totalFrames; i++) {
+        if (!frames[i].isOccupied) {
+            return i;
+        }
+    }
+    return -1; // No free frames
+}
+
+int MemoryManager::selectVictimFrame() {
+    // FIFO: find next occupied frame
+    int startPointer = fifoPointer;
+    
+    do {
+        if (frames[fifoPointer].isOccupied) {
+            int victim = fifoPointer;
+            fifoPointer = (fifoPointer + 1) % totalFrames;
+            return victim;
+        }
+        fifoPointer = (fifoPointer + 1) % totalFrames;
+    } while (fifoPointer != startPointer);
+    
+    return 0; // Fallback
+}
+
+void MemoryManager::loadPageFromBackingStore(Process* process, int pageNumber, int frameNumber) {
+    // Simulate loading from disk
+    // std::cout << "[DISK I/O] Loading page " << pageNumber 
+    //           << " of " << process->name << " into frame " << frameNumber << std::endl;
+    
+    // Simulate some data in the page
+    int startAddr = frameNumber * frameSize;
+    int processHash = std::hash<std::string>{}(process->name) % 256;
+    for (int i = 0; i < frameSize; i++) {
+        physicalMemory[startAddr + i] = (processHash + pageNumber + i) % 256;
+    }
+}
+
+void MemoryManager::evictPageToBackingStore(int frameNumber) {
+    if (!frames[frameNumber].isOccupied) return;
+    
+    Process* process = frames[frameNumber].owner;
+    int pageNumber = frames[frameNumber].virtualPageNumber;
+    
+    // std::cout << "[DISK I/O] Evicting page " << pageNumber 
+    //           << " of " << process->name << " from frame " << frameNumber << std::endl;
+    
+    // Mark page as invalid in page table
+    if (pageTables.find(process) != pageTables.end() && 
+        pageNumber < pageTables[process].size()) {
+        pageTables[process][pageNumber].isValid = false;
+        pageTables[process][pageNumber].frameNumber = -1;
+    }
+}
+
+int MemoryManager::getFreeFrames() const {
     int count = 0;
-    for (const auto& block : blocks) {
-        if (block.owner != nullptr) count++;
+    for (const auto& frame : frames) {
+        if (!frame.isOccupied) count++;
     }
     return count;
 }
 
-void MemoryManager::printMemoryMap(std::ostream& out) const {
-    out << "----end---- = " << totalSize << "\n";
-
-    // Print only blocks that are allocated, in descending address order
-    for (auto it = blocks.rbegin(); it != blocks.rend(); ++it) {
-        if (it->owner != nullptr) {
-            out << it->end << "\n";
-            out << it->owner->name << "\n";
-            out << it->start << "\n";
-        }
-    }
-
-    out << "----start---- = 0\n";
+int MemoryManager::getUsedFrames() const {
+    return totalFrames - getFreeFrames();
 }
 
-void outputMemorySnapshot(const MemoryManager& mm, int quantumCycle) {
-    // Always use 4 files, wrap quantumCycle to 1-4
-    int fileQuantum = ((quantumCycle - 1) % 4) + 1;
-    std::ostringstream filename;
-    filename << "memory_stamp_" << fileQuantum << ".txt";
+void MemoryManager::accessMemory(Process* process, int virtualAddress) {
+    int physicalAddress;
+    if (translateAddress(process, virtualAddress, physicalAddress)) {
+        // Memory access successful
+        // std::cout << "[MEMORY ACCESS] " << process->name 
+        //           << " accessed virtual addr " << virtualAddress 
+        //           << " -> physical addr " << physicalAddress << std::endl;
+    } else {
+        std::cout << "[MEMORY ERROR] Failed to access address " 
+                  << virtualAddress << " for " << process->name << std::endl;
+    }
+}
 
-    std::ofstream outFile(filename.str(), std::ios::app);
-    if (!outFile.is_open()) {
-        std::string fullPath = "./" + filename.str();
-        outFile.open(fullPath, std::ios::app);
-        if (!outFile.is_open()) {
-            return;
+void MemoryManager::printMemoryMap(std::ostream& out) const {
+    out << "====== MEMORY MAP ======\n";
+    out << "Total Frames: " << totalFrames << "\n";
+    out << "Free Frames: " << getFreeFrames() << "\n";
+    out << "Used Frames: " << getUsedFrames() << "\n\n";
+    
+    for (int i = totalFrames - 1; i >= 0; i--) {
+        out << "Frame " << std::setw(2) << i << ": ";
+        if (frames[i].isOccupied) {
+            out << frames[i].owner->name << " (Page " << frames[i].virtualPageNumber << ")";
+        } else {
+            out << "FREE";
+        }
+        out << "\n";
+    }
+    out << "========================\n";
+}
+
+size_t MemoryManager::getExternalFragmentation() const {
+    return getFreeFrames() * frameSize;
+}
+
+int MemoryManager::getNumProcessesInMemory() const {
+    std::set<Process*> uniqueProcesses;
+    for (const auto& frame : frames) {
+        if (frame.isOccupied) {
+            uniqueProcesses.insert(frame.owner);
         }
     }
+    return uniqueProcesses.size();
+}
 
-    // Get current timestamp (matching the format in attachment)
-    std::time_t now = std::time(nullptr);
-    char timeBuffer[100];
-    std::strftime(timeBuffer, sizeof(timeBuffer), "%m/%d/%Y %I:%M:%S%p", std::localtime(&now));
-    outFile << "Timestamp: (" << timeBuffer << ")\n";
-
-    // Number of processes in memory
-    int processCount = mm.getNumProcessesInMemory();
-    outFile << "Number of processes in memory: " << processCount << "\n";
-
-    // Total external fragmentation in KB
-    outFile << "Total external fragmentation in KB: " << mm.getExternalFragmentation() / 1024 << "\n";
-
-    // ASCII printout of memory (matching attachment format)
-    outFile << "----end---- = " << mm.getTotalSize() << "\n";
-
-    // Print only allocated blocks in descending address order (matching sample)
-    for (auto it = mm.getBlocks().rbegin(); it != mm.getBlocks().rend(); ++it) {
-        if (it->owner != nullptr) {
-            outFile << it->end << "\n";
-            outFile << it->owner->name << "\n";
-            outFile << it->start << "\n";
-        }
-    }
-
-    outFile << "----start---- = 0\n";
-    outFile << "\n"; // Add separator between snapshots
-    outFile.close();
+int MemoryManager::getTotalFrames() const {
+    return totalFrames;
 }

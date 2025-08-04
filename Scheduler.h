@@ -66,7 +66,7 @@ public:
     Process* getProcess(const std::string& processName);
     //std::vector<Process>& getAllProcesses() { return allProcesses; }
     std::vector<std::unique_ptr<Process>>& getAllProcesses() { return allProcesses; }
-
+    MemoryManager& getMemoryManager() { return memoryManager; }
 };
 
 
