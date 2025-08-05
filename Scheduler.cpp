@@ -148,6 +148,7 @@ void Scheduler::printScreen() {
         }
     }
     
+    /*
     std::cout << "\nIn queue:\n";
     
     // Show processes waiting for memory
@@ -184,6 +185,7 @@ void Scheduler::printScreen() {
             }
         }
     }
+    */
 
     std::cout << "\nFinished processes:\n";
 
@@ -396,12 +398,12 @@ void Scheduler::schedulingLoop() {
                 // Check if ready queue is empty
                 bool readyQueueEmpty = readyQueue.empty();
                 
-                if (allFinished && !hasRunningProcesses && readyQueueEmpty) {
-                    std::cout << "\n=== All processes have finished execution ===\n";
-                    std::cout << "Scheduler is still running. Use 'screen -ls' to view process summary.\n";
-                    std::cout << "Type 'scheduler-stop' to stop the scheduler or 'exit' to quit.\n\n>";
-                    allProcessesFinishedMessageShown = true;
-                }
+                //if (allFinished && !hasRunningProcesses && readyQueueEmpty) {
+                //    std::cout << "\n=== All processes have finished execution ===\n";
+                //   std::cout << "Scheduler is still running. Use 'screen -ls' to view process summary.\n";
+                //   std::cout << "Type 'scheduler-stop' to stop the scheduler or 'exit' to quit.\n\n>";
+                //  allProcessesFinishedMessageShown = true;
+                //}
             }
 
             // Remove the memory snapshot output for now since we're focusing on core demand paging
