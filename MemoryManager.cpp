@@ -43,12 +43,17 @@ bool MemoryManager::allocateProcess(Process* process) {
     int pagesNeeded = (process->memRequired + frameSize - 1) / frameSize;
     
     // Check if we have enough free frames 
-    int freeFrames = getFreeFrames();
-    if (freeFrames < pagesNeeded) {
-        // Not enough memory available
-        process->hasMemory = false;
-        return false;
+    pageTables[process].resize(pagesNeeded);
+
+    for (int i = 0; i < pagesNeeded; i++) {
+        pageTables[process][i].frameNumber = -1;
+        pageTables[process][i].isValid = false;
+        pageTables[process][i].isDirty = false;
+        pageTables[process][i].isReferenced = false;
     }
+
+    process->hasMemory = true;
+    return true;
 
     // Create page table for process 
     pageTables[process].resize(pagesNeeded);
