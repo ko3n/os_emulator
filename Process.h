@@ -15,7 +15,9 @@ enum class InstructionType {
     SUBTRACT,
     SLEEP,
     FOR_START,
-    FOR_END
+    FOR_END,
+    READ,
+    WRITE
 };
 
 // Process instruction structure
@@ -24,6 +26,9 @@ struct Instruction {
     std::string msg;
     std::string varName;
     int value;
+    std::string srcVar;      // For ADD, READ, WRITE
+    std::string destVar;     // For ADD, READ
+    uint32_t memAddress; 
     std::vector<Instruction> forBody;
     int forIterations;
     std::optional<std::chrono::system_clock::time_point> executedAt;
@@ -53,9 +58,18 @@ public:
     bool isFinished;
     std::vector<int> forStack;
     std::vector<int> forCounters;
+    size_t memStart = 0;
+    size_t memEnd = 0;
+    int memRequired;        // Total memory needed by process
+    int currentMemoryPage;  // Current page being accessed
+    bool hasMemory;         // Has page table been created
+    std::vector<std::string> log;
     
     Process(const std::string& processName, int processId);
     void generateRandomInstructions(int minIns, int maxIns);
+    
+    // Memory access simulation for demand paging
+    void accessRandomMemory(); // Simulate memory access causing page faults
 };
 
 #endif

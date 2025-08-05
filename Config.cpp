@@ -32,6 +32,15 @@ bool loadConfig(const std::string& filename) {
             file >> systemConfig.maxInstructions;
         } else if (key == "delay-per-exec") {
             file >> systemConfig.delayPerExec;
+        // MO2 Parameters
+        } else if (key == "max-overall-mem") {
+            file >> systemConfig.maxOverallMem;
+        } else if (key == "mem-per-frame") {
+            file >> systemConfig.memPerFrame;
+        } else if (key == "min-mem-per-proc") {
+            file >> systemConfig.minMemPerProc;
+        } else if (key == "max-mem-per-proc") {
+            file >> systemConfig.maxMemPerProc;
         } else {
             std::cerr << "Unknown config key: " << key << "\n";
         }
