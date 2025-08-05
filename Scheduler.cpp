@@ -90,20 +90,13 @@ void Scheduler::addProcess(const std::string& processName) {
     std::uniform_int_distribution<> dis(systemConfig.minMemPerProc, systemConfig.maxMemPerProc);
     process->memRequired = dis(gen);
     
-    // Store memory requirement before moving the process
-    int memReq = process->memRequired;
-    
     // Try to allocate memory for the process
     if (memoryManager.allocateProcess(process.get())) {
         // Memory allocation successful - add to ready queue  
         readyQueue.push(process.get());
-        // std::cout << "[Scheduler] Process " << processName << " created with " 
-        //           << memReq << " bytes memory requirement\n";
     } else {
         // Memory allocation failed - process exists but can't be scheduled
         process->hasMemory = false;
-        /*std::cout << "[Scheduler] Process " << processName << " created but insufficient memory available (" 
-                  << memReq << " bytes requested).\n";*/
     }
     
     // Add process to allProcesses regardless of memory allocation success
@@ -126,8 +119,8 @@ void Scheduler::addProcessWithMemory(const std::string& processName, int memoryS
     if (memoryManager.allocateProcess(process.get())) {
         // Memory allocation successful - add to ready queue
         readyQueue.push(process.get());
-        std::cout << "[Scheduler] Process " << processName << " allocated with " 
-                  << memorySize << " bytes of memory.\n";
+        /*std::cout << "[Scheduler] Process " << processName << " allocated with " 
+                  << memorySize << " bytes of memory.\n";*/
     } else {
         // Memory allocation failed - process exists but can't be scheduled
         process->hasMemory = false;
@@ -154,7 +147,7 @@ void Scheduler::printScreen() {
     std::cout << "----------------------------------------\n";
     std::cout << "Running processes:\n";
     for (const auto& core : cores) {
-        if (core.currentProcess && core.currentProcess->hasMemory) { // Only show if process has memory
+        if (core.currentProcess && core.currentProcess->hasMemory) {
             auto process = core.currentProcess;
             auto currentTime = std::chrono::system_clock::now();
             auto time_t = std::chrono::system_clock::to_time_t(process->creationTime);
@@ -178,45 +171,6 @@ void Scheduler::printScreen() {
                       << "\n";
         }
     }
-    
-    /*
-    std::cout << "\nIn queue:\n";
-    
-    // Show processes waiting for memory
-    for (const auto& processPtr : allProcesses) {
-        const Process* process = processPtr.get();
-        if (process->isFinished) continue;
-        
-        // Check if process is running on a core
-        bool isRunning = false;
-        for (const auto& core : cores) {
-            if (core.currentProcess == process) {
-                isRunning = true;
-                break;
-            }
-        }
-        
-        if (!isRunning) {
-            if (!process->hasMemory) {
-                // Process waiting for memory
-                std::cout << std::left
-                          << std::setw(12) << process->name
-                          << std::setw(28) << "(Waiting for memory)"
-                          << std::setw(10) << ""
-                          << std::setw(10) << ""
-                          << "\n";
-            } else {
-                // Process has memory and is in ready queue
-                std::cout << std::left
-                          << std::setw(12) << process->name
-                          << std::setw(28) << "(Ready)"
-                          << std::setw(10) << ""
-                          << std::setw(10) << ""
-                          << "\n";
-            }
-        }
-    }
-    */
 
     std::cout << "\nFinished processes:\n";
 
@@ -371,17 +325,14 @@ void Scheduler::schedulingLoop() {
                     if (core.currentProcess->hasMemory) {
                         memoryManager.deallocateProcess(core.currentProcess);
                         
-                        // Now try to allocate memory for waiting processes
-                        // First check ready queue
+                        // Try to allocate memory for waiting processes
                         std::queue<Process*> tempQueue;
                         while (!readyQueue.empty()) {
                             Process* proc = readyQueue.front();
                             readyQueue.pop();
                             if (!proc->hasMemory && !proc->isFinished) {
                                 // Try to allocate memory now that some was freed
-                                if (memoryManager.allocateProcess(proc)) {
-                                    // Memory allocated successfully, process can now be scheduled
-                                }
+                                memoryManager.allocateProcess(proc);
                             }
                             tempQueue.push(proc);
                         }
@@ -461,7 +412,7 @@ void Scheduler::roundRobinSchedule() {
             // Assign new process to core
             Process *nextProc = readyQueue.front();
             readyQueue.pop();
-            // Only schedule if process has memory
+            // Only schedule if process has memory and is not finished
             if (nextProc->hasMemory && !nextProc->isFinished) {
                 core.currentProcess = nextProc;
                 nextProc->state = ProcessState::RUNNING;
@@ -528,20 +479,20 @@ void Scheduler::executeInstruction(CPUCore& core) {
     
     Process* process = core.currentProcess;
     
-    // Add memory access simulation that may cause page faults
+    // Add more frequent memory access simulation for demand paging
     if (process->hasMemory) {
-        int virtualAddr = rand() % process->memRequired;
-        memoryManager.accessMemory(process, virtualAddr);
+        // Access multiple random memory locations to trigger more page faults
+        for (int i = 0; i < 3; i++) {
+            int virtualAddr = rand() % process->memRequired;
+            memoryManager.accessMemory(process, virtualAddr);
+        }
     }
     
     if (process->currentInstruction >= process->instructions.size()) {
         process->isFinished = true;
         process->state = ProcessState::FINISHED;
         process->finishTime = std::chrono::system_clock::now();
-        // Deallocate memory when process finishes
-        if (process->hasMemory) {
-            memoryManager.deallocateProcess(process);
-        }
+
         return;
     }
     
@@ -550,6 +501,11 @@ void Scheduler::executeInstruction(CPUCore& core) {
     
     switch (instr.type) {
         case InstructionType::PRINT:
+            // Access memory for print operations too
+            if (process->hasMemory) {
+                int virtualAddr = rand() % process->memRequired;
+                memoryManager.accessMemory(process, virtualAddr);
+            }
             break;
         case InstructionType::DECLARE:
             process->variables[instr.varName] = instr.value;
@@ -616,7 +572,7 @@ double Scheduler::calculateCPUUtilization() {
 int Scheduler::getActiveCores() {
     int active = 0;
     for (const auto& core : cores) {
-        if (core.currentProcess && core.currentProcess->hasMemory) // Only count if process has memory
+        if (core.currentProcess) 
             active++;
     }
     return active;
@@ -637,9 +593,12 @@ void Scheduler::processSmi() {
     std::cout << "Memory Util: " << (int)memUtil << "%\n";
     std::cout << "----------------------------------------\n";
     std::cout << "Running processes and memory usage:\n\n";
+    
+    // Show processes that have memory allocated
     for (const auto& proc : allProcesses) {
-        if (!proc->isFinished && proc->hasMemory)
+        if (!proc->isFinished && proc->hasMemory) {
             std::cout << proc->name << " " << proc->memRequired << "B\n";
+        }
     }
     std::cout << "\n";
 }

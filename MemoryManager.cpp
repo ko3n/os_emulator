@@ -42,7 +42,7 @@ bool MemoryManager::allocateProcess(Process* process) {
     // Calculate number of pages needed
     int pagesNeeded = (process->memRequired + frameSize - 1) / frameSize;
     
-    // Check if we have enough free frames
+    // Check if we have enough free frames 
     int freeFrames = getFreeFrames();
     if (freeFrames < pagesNeeded) {
         // Not enough memory available
@@ -53,35 +53,12 @@ bool MemoryManager::allocateProcess(Process* process) {
     // Create page table for process 
     pageTables[process].resize(pagesNeeded);
 
-    // Initialize page table entries as invalid (not in memory)
+    // Initialize page table entries as invalid
     for (int i = 0; i < pagesNeeded; i++) {
         pageTables[process][i].frameNumber = -1;
-        pageTables[process][i].isValid = false;
+        pageTables[process][i].isValid = false;  // Pages start NOT in memory
         pageTables[process][i].isDirty = false;
         pageTables[process][i].isReferenced = false;
-    }
-
-    // Actually allocate the frames immediately for FCFS behavior
-    for (int i = 0; i < pagesNeeded; i++) {
-        int frameNumber = findFreeFrame();
-        if (frameNumber != -1) {
-            // Update page table
-            pageTables[process][i].frameNumber = frameNumber;
-            pageTables[process][i].isValid = true;
-            
-            // Update frame info
-            frames[frameNumber].owner = process;
-            frames[frameNumber].virtualPageNumber = i;
-            frames[frameNumber].isOccupied = true;
-            frames[frameNumber].isDirty = false;
-            
-            // Initialize the frame with some data
-            int startAddr = frameNumber * frameSize;
-            int processHash = std::hash<std::string>{}(process->name) % 256;
-            for (int j = 0; j < frameSize; j++) {
-                physicalMemory[startAddr + j] = (processHash + i + j) % 256;
-            }
-        }
     }
 
     process->hasMemory = true;
@@ -116,7 +93,7 @@ bool MemoryManager::handlePageFault(Process* process, int virtualPageNumber) {
     if (virtualPageNumber >= pageTables[process].size()) {
         return false; // Invalid page number
     }
-    
+
     // Find free frame or select victim
     int frameNumber = findFreeFrame();
     if (frameNumber == -1) {
