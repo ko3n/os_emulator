@@ -147,7 +147,7 @@ void Scheduler::printScreen() {
     std::cout << "----------------------------------------\n";
     std::cout << "Running processes:\n";
     for (const auto& core : cores) {
-        if (core.currentProcess) {
+        if (core.currentProcess && core.currentProcess->hasMemory) { // Only show if process has memory
             auto process = core.currentProcess;
             auto currentTime = std::chrono::system_clock::now();
             auto time_t = std::chrono::system_clock::to_time_t(process->creationTime);
@@ -172,6 +172,7 @@ void Scheduler::printScreen() {
         }
     }
     
+    /*
     std::cout << "\nIn queue:\n";
     
     // Show processes waiting for memory
@@ -208,6 +209,7 @@ void Scheduler::printScreen() {
             }
         }
     }
+    */
 
     std::cout << "\nFinished processes:\n";
 
@@ -595,7 +597,8 @@ double Scheduler::calculateCPUUtilization() {
 int Scheduler::getActiveCores() {
     int active = 0;
     for (const auto& core : cores) {
-        if (core.currentProcess) active++;
+        if (core.currentProcess && core.currentProcess->hasMemory) // Only count if process has memory
+            active++;
     }
     return active;
 }
@@ -611,13 +614,20 @@ void Scheduler::processSmi() {
 
     std::cout << "\n";
     std::cout << "CPU-Util: " << (int)cpuUtil << "%\n";
-    std::cout << "Memory Usage: " << usedMem / 1024 << "KiB / " << totalMem / 1024 << "KiB\n";
+    std::cout << "Memory Usage: " << usedMem << "B / " << totalMem << "B\n";
     std::cout << "Memory Util: " << (int)memUtil << "%\n";
     std::cout << "----------------------------------------\n";
     std::cout << "Running processes and memory usage:\n\n";
     for (const auto& proc : allProcesses) {
         if (!proc->isFinished && proc->hasMemory)
-            std::cout << proc->name << " " << proc->memRequired / 1024 << "KiB\n";
+            std::cout << proc->name << " " << proc->memRequired << "B\n";
     }
     std::cout << "\n";
+}
+
+void Scheduler::startSchedulingLoopOnly() {
+    if (!isRunning) {
+        isRunning = true;
+        std::thread([this]() { schedulingLoop(); }).detach();
+    }
 }
