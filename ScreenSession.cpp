@@ -131,11 +131,38 @@ void screenSessionInterface(ScreenSession& session) {
                         timestamp << "(Time N/A)";
                     }
                     if (!instr.msg.empty()) {
-                        // Only print instructions with a message (DECLARE, PRINT, etc.), except ADD (handled below if no msg)
-                        if (instr.type != InstructionType::ADD) {
+                        // Skip PRINT instructions with 'Sum' in the message
+                        if (instr.type == InstructionType::PRINT && instr.msg.find("Sum") != std::string::npos) {
+                            continue;
+                        }
+                        // Variable substitution for PRINT instructions
+                        if (instr.type == InstructionType::PRINT) {
+                            std::string substituted = instr.msg;
+                            // Replace occurrences of + varName with value
+                            std::regex plusVarRegex("\\+\\s*([a-zA-Z_][a-zA-Z0-9_]*)");
+                            std::smatch match;
+                            std::string::const_iterator searchStart(substituted.cbegin());
+                            std::string result;
+                            size_t lastPos = 0;
+                            while (std::regex_search(searchStart, substituted.cend(), match, plusVarRegex)) {
+                                // Append text before match
+                                result += substituted.substr(lastPos, match.position());
+                                std::string varName = match[1];
+                                int value = 0;
+                                auto it = smiProcess->variables.find(varName);
+                                if (it != smiProcess->variables.end()) value = it->second;
+                                result += std::to_string(value);
+                                lastPos = match.position() + match.length();
+                                searchStart = substituted.cbegin() + lastPos;
+                            }
+                            result += substituted.substr(lastPos);
+                            // Remove any remaining quotes
+                            result = std::regex_replace(result, std::regex("\\\""), "");
+                            printLine(timestamp.str() + " Core:" + std::to_string(smiProcess->coreId) + " " + result);
+                        } else if (instr.type != InstructionType::ADD && instr.type != InstructionType::SUBTRACT) {
                             printLine(timestamp.str() + " Core:" + std::to_string(smiProcess->coreId) + " " + instr.msg);
-                        } else if (instr.type == InstructionType::ADD && instr.msg != "") {
-                            // If ADD has a msg (e.g., custom), print it
+                        } else if ((instr.type == InstructionType::ADD || instr.type == InstructionType::SUBTRACT) && instr.msg != "") {
+                            // If ADD or SUBTRACT has a msg (e.g., custom), print it
                             printLine(timestamp.str() + " Core:" + std::to_string(smiProcess->coreId) + " " + instr.msg);
                         }
                     } else if (instr.type == InstructionType::ADD) {
@@ -145,6 +172,13 @@ void screenSessionInterface(ScreenSession& session) {
                         if (smiProcess->variables.count(instr.destVar)) right = smiProcess->variables.at(instr.destVar);
                         int result = left + right;
                         printLine(timestamp.str() + " Core:" + std::to_string(smiProcess->coreId) + " ADD: " + std::to_string(left) + " + " + std::to_string(right) + " = " + std::to_string(result));
+                    } else if (instr.type == InstructionType::SUBTRACT) {
+                        // Show SUBTRACT log: e.g., SUBTRACT: 20 - 5 = 15
+                        int left = 0, right = 0;
+                        if (smiProcess->variables.count(instr.srcVar)) left = smiProcess->variables.at(instr.srcVar);
+                        if (smiProcess->variables.count(instr.destVar)) right = smiProcess->variables.at(instr.destVar);
+                        int result = left - right;
+                        printLine(timestamp.str() + " Core:" + std::to_string(smiProcess->coreId) + " SUBTRACT: " + std::to_string(left) + " - " + std::to_string(right) + " = " + std::to_string(result));
                     }
                 }
                 printLine("");

@@ -537,13 +537,25 @@ void Scheduler::executeInstruction(CPUCore& core) {
             instr.msg = "DECLARE: " + instr.varName + " = " + std::to_string(instr.value);
             break;
         case InstructionType::ADD:
-            if (process->variables.find(instr.varName) != process->variables.end()) {
-                process->variables[instr.varName] += instr.value;
+            if (process->variables.find(instr.srcVar) != process->variables.end() && process->variables.find(instr.destVar) != process->variables.end()) {
+                int val1 = process->variables[instr.srcVar];
+                int val2 = process->variables[instr.destVar];
+                int result = val1 + val2;
+                process->variables[instr.varName] = result;
+                std::ostringstream oss;
+                oss << "ADD: " << val1 << " + " << val2 << " = " << result << " (" << instr.varName << " = " << result << ")";
+                instr.msg = oss.str();
             }
             break;
         case InstructionType::SUBTRACT:
-            if (process->variables.find(instr.varName) != process->variables.end()) {
-                process->variables[instr.varName] -= instr.value;
+            if (process->variables.find(instr.srcVar) != process->variables.end() && process->variables.find(instr.destVar) != process->variables.end()) {
+                int val1 = process->variables[instr.srcVar];
+                int val2 = process->variables[instr.destVar];
+                int result = val1 - val2;
+                process->variables[instr.varName] = result;
+                std::ostringstream oss;
+                oss << "SUBTRACT: " << val1 << " - " << val2 << " = " << result << " (" << instr.varName << " = " << result << ")";
+                instr.msg = oss.str();
             }
             break;
         case InstructionType::SLEEP:
@@ -576,15 +588,25 @@ void Scheduler::executeInstruction(CPUCore& core) {
                 val = memoryManager.readWord(physAddr);
             }
             process->variables[instr.varName] = val;
+            // Improved log message: show variable and address only (no value)
+            std::ostringstream oss;
+            oss << "READ: " << instr.varName << " <- [0x" << std::hex << std::uppercase << instr.memAddress << "]";
+            instr.msg = oss.str();
             break;
         }
         case InstructionType::WRITE: {
             int physAddr = 0;
             uint16_t val = 0;
-            if (process->variables.count(instr.srcVar)) val = (uint16_t)process->variables[instr.srcVar];
+            // Use instr.varName as the variable to write
+            std::string srcVarName = instr.varName;
+            if (process->variables.count(srcVarName)) val = (uint16_t)process->variables[srcVarName];
             if (memoryManager.translateAddress(process, instr.memAddress, physAddr)) {
                 memoryManager.writeWord(physAddr, val);
             }
+            // Log: show value and address (e.g., 'WRITE: 15 to 0x500')
+            std::ostringstream oss;
+            oss << "WRITE: " << val << " to 0x" << std::hex << std::uppercase << instr.memAddress;
+            instr.msg = oss.str();
             break;
         }
     }
