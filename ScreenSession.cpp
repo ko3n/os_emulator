@@ -6,6 +6,9 @@ extern Scheduler* globalScheduler;
 #include <iomanip>
 #include <sstream>
 #include <algorithm>
+#include "Config.h" 
+#include <thread>
+#include <chrono>
 
 // Forward declaration of clearScreen from main.cpp
 extern void clearScreen();
@@ -161,19 +164,23 @@ void handleScreenCommand(const std::string& command) {
         std::string memoryStr;
         iss >> name >> memoryStr;
         
-        // Check if both name and memory size are provided
-        if (name.empty() || memoryStr.empty()) {
+        // If memory size is not provided, use maxOverallMem
+        int memorySize;
+        if (name.empty()) {
             std::cout << "\nUsage: screen -s <process_name> <memory_size>\n";
             std::cout << "Memory size must be power of 2 between 64 and 65536 bytes.\n";
             return;
         }
-        
-        int memorySize;
-        try {
-            memorySize = std::stoi(memoryStr);
-        } catch (const std::exception& e) {
-            std::cout << "\nInvalid memory size format. Please enter a valid number.\n";
-            return;
+        if (memoryStr.empty()) {
+            std::cout << "No memory input. Assigning max per process (" << systemConfig.maxOverallMem << " bytes).\n";
+            memorySize = systemConfig.maxOverallMem; 
+        } else {
+            try {
+                memorySize = std::stoi(memoryStr);
+            } catch (const std::exception& e) {
+                std::cout << "\nInvalid memory size format. Please enter a valid number.\n";
+                return;
+            }
         }
         
         // Validate memory size: must be power of 2 and within [64, 65536] range
@@ -216,6 +223,7 @@ void handleScreenCommand(const std::string& command) {
             };
             screens[name] = newSession;
             std::cout << "\nProcess '" << name << "' created with " << memorySize << " bytes of memory.\n";
+            std::this_thread::sleep_for(std::chrono::milliseconds(1000)); 
             screenSessionInterface(screens[name]);
         } else {
             std::cout << "\nFailed to create process in scheduler - insufficient memory.\n";
