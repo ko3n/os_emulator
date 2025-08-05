@@ -93,15 +93,21 @@ void Scheduler::addProcess(const std::string& processName) {
     // Store memory requirement before moving the process
     int memReq = process->memRequired;
     
-    // Allocate process (creates page table, but doesn't load pages yet)
+    // Try to allocate memory for the process
     if (memoryManager.allocateProcess(process.get())) {
+        // Memory allocation successful - add to ready queue  
         readyQueue.push(process.get());
-        allProcesses.push_back(std::move(process));
         // std::cout << "[Scheduler] Process " << processName << " created with " 
         //           << memReq << " bytes memory requirement\n";
     } else {
-        std::cout << "[Scheduler] Failed to allocate process " << processName << "\n";
+        // Memory allocation failed - process exists but can't be scheduled
+        process->hasMemory = false;
+        std::cout << "[Scheduler] Process " << processName << " created but insufficient memory available (" 
+                  << memReq << " bytes requested).\n";
     }
+    
+    // Add process to allProcesses regardless of memory allocation success
+    allProcesses.push_back(std::move(process));
 }
 
 void Scheduler::addProcessWithMemory(const std::string& processName, int memorySize) {
@@ -118,18 +124,19 @@ void Scheduler::addProcessWithMemory(const std::string& processName, int memoryS
     
     // Try to allocate memory for the process
     if (memoryManager.allocateProcess(process.get())) {
-        // Memory allocation successful
+        // Memory allocation successful - add to ready queue
         readyQueue.push(process.get());
-        allProcesses.push_back(std::move(process));
-        
         std::cout << "[Scheduler] Process " << processName << " allocated with " 
                   << memorySize << " bytes of memory.\n";
     } else {
-        // Memory allocation failed
-        std::cout << "[Scheduler] Failed to allocate memory for process " << processName 
-                  << " - insufficient memory available.\n";
-        // process unique_ptr will automatically clean up when it goes out of scope
+        // Memory allocation failed - process exists but can't be scheduled
+        process->hasMemory = false;
+        std::cout << "[Scheduler] Process " << processName << " created but insufficient memory available (" 
+                  << memorySize << " bytes requested).\n";
     }
+    
+    // Add process to allProcesses regardless of memory allocation success
+    allProcesses.push_back(std::move(process));
 }
 
 void Scheduler::printScreen() {
@@ -363,6 +370,33 @@ void Scheduler::schedulingLoop() {
                 if (core.currentProcess && core.currentProcess->isFinished) {
                     if (core.currentProcess->hasMemory) {
                         memoryManager.deallocateProcess(core.currentProcess);
+                        
+                        // Now try to allocate memory for waiting processes
+                        // First check ready queue
+                        std::queue<Process*> tempQueue;
+                        while (!readyQueue.empty()) {
+                            Process* proc = readyQueue.front();
+                            readyQueue.pop();
+                            if (!proc->hasMemory && !proc->isFinished) {
+                                // Try to allocate memory now that some was freed
+                                if (memoryManager.allocateProcess(proc)) {
+                                    // Memory allocated successfully, process can now be scheduled
+                                }
+                            }
+                            tempQueue.push(proc);
+                        }
+                        readyQueue = tempQueue;
+                        
+                        // Also check allProcesses for processes waiting for memory
+                        for (const auto& processPtr : allProcesses) {
+                            Process* proc = processPtr.get();
+                            if (!proc->hasMemory && !proc->isFinished) {
+                                if (memoryManager.allocateProcess(proc)) {
+                                    // Memory allocated successfully, add to ready queue
+                                    readyQueue.push(proc);
+                                }
+                            }
+                        }
                     }
                     core.currentProcess = nullptr;
                     core.isRunning = false;
@@ -370,19 +404,7 @@ void Scheduler::schedulingLoop() {
                 }
             }
 
-            // 2. Try to allocate memory for processes in the ready queue that don't have memory
-            std::queue<Process*> tempQueue;
-            while (!readyQueue.empty()) {
-                Process* proc = readyQueue.front();
-                readyQueue.pop();
-                if (!proc->hasMemory && !proc->isFinished) {
-                    memoryManager.allocateProcess(proc); // Fixed method name
-                }
-                tempQueue.push(proc);
-            }
-            readyQueue = tempQueue;
-
-            // 3. Schedule processes
+            // 2. Schedule processes (removed the memory allocation loop from here)
             if (systemConfig.scheduler == "rr") {
                 roundRobinSchedule();
             }
@@ -390,7 +412,7 @@ void Scheduler::schedulingLoop() {
                 fcfsSchedule();
             }
 
-            // 4. Execute instructions on running cores
+            // 3. Execute instructions on running cores
             for (auto& core : cores) {
                 if (core.currentProcess) {
                     executeInstruction(core);
@@ -429,9 +451,6 @@ void Scheduler::schedulingLoop() {
                     allProcessesFinishedMessageShown = true;
                 }
             }
-
-            // Remove the memory snapshot output for now since we're focusing on core demand paging
-            // We can add this back later when implementing process-smi and vmstat
         }
     }
 }
