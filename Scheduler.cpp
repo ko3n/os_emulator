@@ -103,29 +103,19 @@ void Scheduler::addProcess(const std::string& processName) {
     allProcesses.push_back(std::move(process));
 }
 
-void Scheduler::addProcessWithMemory(const std::string& processName, int memorySize) {
+void Scheduler::addProcessWithMemory(const std::string& processName, int memorySize, const std::vector<Instruction>& userInstructions) {
     std::lock_guard<std::mutex> lock(schedulerMutex);
-
-    // Create new process with specified memory size
     auto process = std::make_unique<Process>(processName, processCounter++);
-    
-    // Generate random instructions 
-    process->generateRandomInstructions(systemConfig.minInstructions, systemConfig.maxInstructions);
-    
-    // Set the specified memory requirement
+    process->instructions = userInstructions; 
     process->memRequired = memorySize;
-    
-    // Try to allocate memory for the process
     if (memoryManager.allocateProcess(process.get())) {
         // Memory allocation successful - add to ready queue
         readyQueue.push(process.get());
-        /*std::cout << "[Scheduler] Process " << processName << " allocated with " 
-                  << memorySize << " bytes of memory.\n";*/
+        allProcesses.push_back(std::move(process));
+        std::cout << "[Scheduler] Process " << processName << " allocated with " 
+                  << memorySize << " bytes of memory.\n";
     } else {
-        // Memory allocation failed - process exists but can't be scheduled
-        process->hasMemory = false;
-        /*std::cout << "[Scheduler] Process " << processName << " created but insufficient memory available (" 
-                  << memorySize << " bytes requested).\n";*/
+        std::cout << "[Scheduler] Failed to allocate memory for process " << processName << " - insufficient memory available.\n";
     }
     
     // Add process to allProcesses regardless of memory allocation success
@@ -476,7 +466,6 @@ void Scheduler::fcfsSchedule(){
 
 void Scheduler::executeInstruction(CPUCore& core) {
     if (!core.currentProcess || core.currentProcess->isFinished) return;
-    
     Process* process = core.currentProcess;
     
     // Add more frequent memory access simulation for demand paging
@@ -498,26 +487,51 @@ void Scheduler::executeInstruction(CPUCore& core) {
     
     Instruction& instr = process->instructions[process->currentInstruction];
     instr.executedAt = std::chrono::system_clock::now();
-    
     switch (instr.type) {
-        case InstructionType::PRINT:
-            // Access memory for print operations too
-            if (process->hasMemory) {
-                int virtualAddr = rand() % process->memRequired;
-                memoryManager.accessMemory(process, virtualAddr);
+        case InstructionType::PRINT: {
+            // Enhanced PRINT: substitute $varName with variable value
+            std::string msg = instr.msg;
+            size_t pos = 0;
+            while ((pos = msg.find('$', pos)) != std::string::npos) {
+                size_t end = pos + 1;
+                while (end < msg.size() && (std::isalnum(msg[end]) || msg[end] == '_')) ++end;
+                std::string varName = msg.substr(pos + 1, end - pos - 1);
+                if (!varName.empty() && process->variables.count(varName)) {
+                    msg.replace(pos, end - pos, std::to_string(process->variables[varName]));
+                    pos += std::to_string(process->variables[varName]).size();
+                } else {
+                    pos = end;
+                }
             }
+            // Optionally, print to console here if you want PRINT to always show (not required for screen session)
+            // std::cout << msg << std::endl;
+            instr.msg = msg; // Store the substituted message for screen session
             break;
+        }
         case InstructionType::DECLARE:
             process->variables[instr.varName] = instr.value;
+            instr.msg = "DECLARE: " + instr.varName + " = " + std::to_string(instr.value);
             break;
         case InstructionType::ADD:
-            if (process->variables.find(instr.varName) != process->variables.end()) {
-                process->variables[instr.varName] += instr.value;
+            if (process->variables.find(instr.srcVar) != process->variables.end() && process->variables.find(instr.destVar) != process->variables.end()) {
+                int val1 = process->variables[instr.srcVar];
+                int val2 = process->variables[instr.destVar];
+                int result = val1 + val2;
+                process->variables[instr.varName] = result;
+                std::ostringstream oss;
+                oss << "ADD: " << val1 << " + " << val2 << " = " << result << " (" << instr.varName << " = " << result << ")";
+                instr.msg = oss.str();
             }
             break;
         case InstructionType::SUBTRACT:
-            if (process->variables.find(instr.varName) != process->variables.end()) {
-                process->variables[instr.varName] -= instr.value;
+            if (process->variables.find(instr.srcVar) != process->variables.end() && process->variables.find(instr.destVar) != process->variables.end()) {
+                int val1 = process->variables[instr.srcVar];
+                int val2 = process->variables[instr.destVar];
+                int result = val1 - val2;
+                process->variables[instr.varName] = result;
+                std::ostringstream oss;
+                oss << "SUBTRACT: " << val1 << " - " << val2 << " = " << result << " (" << instr.varName << " = " << result << ")";
+                instr.msg = oss.str();
             }
             break;
         case InstructionType::SLEEP:
@@ -532,7 +546,6 @@ void Scheduler::executeInstruction(CPUCore& core) {
                 int forStart = process->forStack.back();
                 int& counter = process->forCounters.back();
                 counter++;
-                
                 if (counter < process->instructions[forStart].value) {
                     process->currentInstruction = forStart;
                 } else {
@@ -541,10 +554,41 @@ void Scheduler::executeInstruction(CPUCore& core) {
                 }
             }
             break;
+        case InstructionType::READ: {
+            // Check symbol table size
+            if (process->variables.size() >= 32 && process->variables.find(instr.varName) == process->variables.end()) break;
+            uint16_t val = 0;
+            int physAddr = 0;
+            if (memoryManager.translateAddress(process, instr.memAddress, physAddr)) {
+                // Simulate memory read (assume physicalMemory is accessible)
+                val = memoryManager.readWord(physAddr);
+            }
+            process->variables[instr.varName] = val;
+            // Improved log message: show variable and address only (no value)
+            std::ostringstream oss;
+            oss << "READ: " << instr.varName << " <- [0x" << std::hex << std::uppercase << instr.memAddress << "]";
+            instr.msg = oss.str();
+            break;
+        }
+        case InstructionType::WRITE: {
+            int physAddr = 0;
+            uint16_t val = 0;
+            // Use instr.varName as the variable to write
+            std::string srcVarName = instr.varName;
+            if (process->variables.count(srcVarName)) val = (uint16_t)process->variables[srcVarName];
+            if (memoryManager.translateAddress(process, instr.memAddress, physAddr)) {
+                memoryManager.writeWord(physAddr, val);
+            }
+            // Log: show value and address (e.g., 'WRITE: 15 to 0x500')
+            std::ostringstream oss;
+            oss << "WRITE: " << val << " to 0x" << std::hex << std::uppercase << instr.memAddress;
+            instr.msg = oss.str();
+            break;
+        }
     }
-    
+
     process->currentInstruction++;
-    
+
     if (systemConfig.delayPerExec > 0) {
         std::this_thread::sleep_for(std::chrono::milliseconds(systemConfig.delayPerExec));
     }
@@ -572,8 +616,9 @@ double Scheduler::calculateCPUUtilization() {
 int Scheduler::getActiveCores() {
     int active = 0;
     for (const auto& core : cores) {
-        if (core.currentProcess) 
+        if (core.currentProcess) {
             active++;
+        }
     }
     return active;
 }

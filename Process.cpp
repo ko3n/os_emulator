@@ -2,9 +2,8 @@
 #include <random>
 
 // Instruction implementation
-Instruction::Instruction(InstructionType t, const std::string& m, const std::string& var, int val) 
-    : type(t), msg(m), varName(var), value(val), forIterations(0), executedAt(std::nullopt) {}
-
+Instruction::Instruction(InstructionType t, const std::string& m, const std::string& var, int val)
+    : type(t), msg(m), varName(var), value(val), srcVar(""), destVar(""), memAddress(0), forIterations(0), executedAt(std::nullopt) {}
 // Process implementation
 Process::Process(const std::string& processName, int processId) 
     : name(processName), id(processId), state(ProcessState::READY), 
@@ -16,7 +15,7 @@ void Process::generateRandomInstructions(int minIns, int maxIns) {
     std::random_device rd;
     std::mt19937 gen(rd());
     std::uniform_int_distribution<> instructionDist(minIns, maxIns);
-    std::uniform_int_distribution<> typeDist(0, 5);
+    std::uniform_int_distribution<> typeDist(0, 7);
     std::uniform_int_distribution<> valueDist(1, 100);
     
     int numInstructions = instructionDist(gen);
@@ -59,6 +58,20 @@ void Process::generateRandomInstructions(int minIns, int maxIns) {
                     "\"Hello world from " + name + "!\"");
                 }
                 break;
+            case InstructionType::READ: {
+                std::string var = "var" + std::to_string(i % 32);
+                uint32_t addr = (rand() % 0x10000) & ~1; // aligned, 16-bit
+                instructions.emplace_back(InstructionType::READ, "", var, 0);
+                instructions.back().memAddress = addr;
+                break;
+            }
+            case InstructionType::WRITE: {
+                uint32_t addr = (rand() % 0x10000) & ~1;
+                std::string src = "var" + std::to_string(i % 32);
+                instructions.emplace_back(InstructionType::WRITE, "", src, 0);
+                instructions.back().memAddress = addr;
+                break;
+            }
         }
     }
 }
