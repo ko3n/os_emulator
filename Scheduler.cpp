@@ -512,10 +512,29 @@ void Scheduler::executeInstruction(CPUCore& core) {
     Instruction& instr = process->instructions[process->currentInstruction];
     instr.executedAt = std::chrono::system_clock::now();
     switch (instr.type) {
-        case InstructionType::PRINT:
+        case InstructionType::PRINT: {
+            // Enhanced PRINT: substitute $varName with variable value
+            std::string msg = instr.msg;
+            size_t pos = 0;
+            while ((pos = msg.find('$', pos)) != std::string::npos) {
+                size_t end = pos + 1;
+                while (end < msg.size() && (std::isalnum(msg[end]) || msg[end] == '_')) ++end;
+                std::string varName = msg.substr(pos + 1, end - pos - 1);
+                if (!varName.empty() && process->variables.count(varName)) {
+                    msg.replace(pos, end - pos, std::to_string(process->variables[varName]));
+                    pos += std::to_string(process->variables[varName]).size();
+                } else {
+                    pos = end;
+                }
+            }
+            // Optionally, print to console here if you want PRINT to always show (not required for screen session)
+            // std::cout << msg << std::endl;
+            instr.msg = msg; // Store the substituted message for screen session
             break;
+        }
         case InstructionType::DECLARE:
             process->variables[instr.varName] = instr.value;
+            instr.msg = "DECLARE: " + instr.varName + " = " + std::to_string(instr.value);
             break;
         case InstructionType::ADD:
             if (process->variables.find(instr.varName) != process->variables.end()) {
@@ -539,7 +558,6 @@ void Scheduler::executeInstruction(CPUCore& core) {
                 int forStart = process->forStack.back();
                 int& counter = process->forCounters.back();
                 counter++;
-                
                 if (counter < process->instructions[forStart].value) {
                     process->currentInstruction = forStart;
                 } else {
@@ -570,9 +588,9 @@ void Scheduler::executeInstruction(CPUCore& core) {
             break;
         }
     }
-    
+
     process->currentInstruction++;
-    
+
     if (systemConfig.delayPerExec > 0) {
         std::this_thread::sleep_for(std::chrono::milliseconds(systemConfig.delayPerExec));
     }
@@ -600,7 +618,9 @@ double Scheduler::calculateCPUUtilization() {
 int Scheduler::getActiveCores() {
     int active = 0;
     for (const auto& core : cores) {
-        if (core.currentProcess) active++;
+        if (core.currentProcess) {
+            active++;
+        }
     }
     return active;
 }

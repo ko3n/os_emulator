@@ -54,14 +54,44 @@ void displayHeader(const std::string& sessionName) {
 }
 
 void screenSessionInterface(ScreenSession& session) {
-    std::system("cls"); 
+    std::system("cls");
     displayHeader(session.name);
 
-    int baseLine = 9; 
+    int baseLine = 9;
     int currentLine = baseLine;
     std::string input;
 
+    // Track last printed instruction index (for any log message)
+    int lastPrintedLogIdx = -1;
+
     while (true) {
+        // Live log output: check for new instructions with non-empty msg executed since lastPrintedLogIdx
+        Process* liveProcess = globalScheduler ? globalScheduler->getProcess(session.name) : nullptr;
+        if (liveProcess) {
+            int printedThisLoop = 0;
+            for (int i = lastPrintedLogIdx + 1; i < liveProcess->currentInstruction && i < liveProcess->instructions.size(); ++i) {
+                const Instruction& instr = liveProcess->instructions[i];
+                if (!instr.msg.empty()) {
+                    std::ostringstream timestamp;
+                    if (instr.executedAt.has_value()) {
+                        std::time_t execTime = std::chrono::system_clock::to_time_t(instr.executedAt.value());
+                        std::tm* local = std::localtime(&execTime);
+                        timestamp << "(" << std::put_time(local, "%m/%d/%Y %I:%M:%S %p") << ")";
+                    } else {
+                        timestamp << "(Time N/A)";
+                    }
+                    // Print at the next line
+                    std::cout << "\033[" << (currentLine + printedThisLoop) << ";1H\033[2K";
+                    std::cout << timestamp.str() << " Core:" << liveProcess->coreId << " " << instr.msg << std::endl;
+                    lastPrintedLogIdx = i;
+                    ++printedThisLoop;
+                }
+            }
+            if (printedThisLoop > 0) {
+                currentLine += printedThisLoop;
+            }
+        }
+
         // Move to the current prompt line
         std::cout << "\033[" << currentLine << ";1H";
         std::cout << "(" << session.name << ")> ";
@@ -74,83 +104,72 @@ void screenSessionInterface(ScreenSession& session) {
         } else if (input == "clear") {
             std::system("cls");
             displayHeader(session.name);
-
             currentLine = baseLine;
-            
+            lastPrintedLogIdx = -1;
         } else if (input == "process-smi") {
             // Show detailed process information
             Process* smiProcess = globalScheduler ? globalScheduler->getProcess(session.name) : nullptr;
             if (smiProcess) {
                 int printedLines = 0;
-
                 currentLine += 2;
-
                 auto printLine = [&](const std::string& text) {
                     std::cout << "\033[" << (currentLine + printedLines) << ";1H\033[2K";
                     std::cout << text << std::endl;
                     ++printedLines;
                 };
-
                 printLine("Process name: " + smiProcess->name);
                 printLine("ID: " + std::to_string(smiProcess->id));
                 printLine("Logs:");
-                
-            
                 for (int i = 0; i < smiProcess->currentInstruction && i < smiProcess->instructions.size(); ++i) {
                     const Instruction& instr = smiProcess->instructions[i];
-                    if (instr.type == InstructionType::PRINT) {
-
-                        /*std::time_t now = std::time(nullptr);
-                        std::tm* local = std::localtime(&now);
-                        std::ostringstream timestamp;
-                        timestamp << "(" << std::put_time(local, "%m/%d/%Y %I:%M:%S%p") << ")";
-                        printLine(timestamp.str() + " Core:" + std::to_string(smiProcess->coreId) + " " + instr.msg);*/
-
-                        std::ostringstream timestamp;
-                        
-                        if (instr.executedAt.has_value()) {
-                            std::time_t execTime = std::chrono::system_clock::to_time_t(instr.executedAt.value());
-                            std::tm* local = std::localtime(&execTime);
-                            timestamp << "(" << std::put_time(local, "%m/%d/%Y %I:%M:%S %p") << ")";
-                        } else {
-                            timestamp << "(Time N/A)";
+                    std::ostringstream timestamp;
+                    if (instr.executedAt.has_value()) {
+                        std::time_t execTime = std::chrono::system_clock::to_time_t(instr.executedAt.value());
+                        std::tm* local = std::localtime(&execTime);
+                        timestamp << "(" << std::put_time(local, "%m/%d/%Y %I:%M:%S %p") << ")";
+                    } else {
+                        timestamp << "(Time N/A)";
+                    }
+                    if (!instr.msg.empty()) {
+                        // Only print instructions with a message (DECLARE, PRINT, etc.), except ADD (handled below if no msg)
+                        if (instr.type != InstructionType::ADD) {
+                            printLine(timestamp.str() + " Core:" + std::to_string(smiProcess->coreId) + " " + instr.msg);
+                        } else if (instr.type == InstructionType::ADD && instr.msg != "") {
+                            // If ADD has a msg (e.g., custom), print it
+                            printLine(timestamp.str() + " Core:" + std::to_string(smiProcess->coreId) + " " + instr.msg);
                         }
-
-                        printLine(timestamp.str() + " Core:" + std::to_string(smiProcess->coreId) + " " + instr.msg);
+                    } else if (instr.type == InstructionType::ADD) {
+                        // Show ADD log: e.g., ADD: 10 + 5 = 15
+                        int left = 0, right = 0;
+                        if (smiProcess->variables.count(instr.srcVar)) left = smiProcess->variables.at(instr.srcVar);
+                        if (smiProcess->variables.count(instr.destVar)) right = smiProcess->variables.at(instr.destVar);
+                        int result = left + right;
+                        printLine(timestamp.str() + " Core:" + std::to_string(smiProcess->coreId) + " ADD: " + std::to_string(left) + " + " + std::to_string(right) + " = " + std::to_string(result));
                     }
                 }
-                
                 printLine("");
-
-                //current instruction line & total lines of code
                 printLine("Current instruction line: " + std::to_string(smiProcess->currentInstruction));
                 printLine("Lines of code: " + std::to_string(smiProcess->instructions.size()));
-
                 if (smiProcess->isFinished) {
                     printLine("Finished!");
                 }
-                
                 printLine("");
                 currentLine += printedLines + 2;
-
             } else {
                 std::cout << "\033[" << (currentLine + 1) << ";1H\033[2K";
                 std::cout << "No scheduler process found for " << session.name << std::endl;
                 currentLine += 3;
             }
-
         } else {
             // Print message below the prompt
             currentLine += 1;
             std::cout << "\033[" << currentLine << ";1H\033[2K";
             std::cout << "'" << input << "' command is not supported on the screen yet.";
             std::cout.flush();
-
             // Move prompt line down for next input
             currentLine += 2;
         }
     }
-
     clearScreen();
 }
 
@@ -254,7 +273,29 @@ void handleScreenCommand(const std::string& command) {
     else if (flag == "-c") {
         iss >> name;
         std::string memStr, instrStr;
-        iss >> memStr;
+        int memorySize = 65536; // default to max
+
+        // Peek next token to see if it's a number (memory size) or start of instructions
+        std::streampos pos = iss.tellg();
+        std::string nextToken;
+        iss >> nextToken;
+        bool hasMem = false;
+        if (!nextToken.empty()) {
+            try {
+                size_t idx;
+                int val = std::stoi(nextToken, &idx);
+                if (idx == nextToken.size()) {
+                    memorySize = val;
+                    hasMem = true;
+                } else {
+                    iss.seekg(pos); // not a pure number, rewind
+                }
+            } catch (...) {
+                iss.seekg(pos); // not a number, rewind
+            }
+        }
+
+        // Now get the rest as instruction string
         std::getline(iss, instrStr);
         instrStr = instrStr.substr(instrStr.find_first_not_of(" \""));
         instrStr = instrStr.substr(0, instrStr.find_last_not_of("\"") + 1);
@@ -264,11 +305,6 @@ void handleScreenCommand(const std::string& command) {
             return;
         }
 
-        int memorySize = 65536; // default to max
-        if (!memStr.empty()) {
-            try { memorySize = std::stoi(memStr); }
-            catch (...) { std::cout << "\nInvalid memory size format.\n"; return; }
-        }
         auto isPowerOf2 = [](int n) { return n > 0 && (n & (n - 1)) == 0; };
         if (!isPowerOf2(memorySize) || memorySize < 64 || memorySize > 65536) {
             std::cout << "\nInvalid memory allocation. Memory must be power of 2 between 64 and 65536 bytes.\n";
