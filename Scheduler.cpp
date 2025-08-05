@@ -102,8 +102,8 @@ void Scheduler::addProcess(const std::string& processName) {
     } else {
         // Memory allocation failed - process exists but can't be scheduled
         process->hasMemory = false;
-        std::cout << "[Scheduler] Process " << processName << " created but insufficient memory available (" 
-                  << memReq << " bytes requested).\n";
+        /*std::cout << "[Scheduler] Process " << processName << " created but insufficient memory available (" 
+                  << memReq << " bytes requested).\n";*/
     }
     
     // Add process to allProcesses regardless of memory allocation success
@@ -131,8 +131,8 @@ void Scheduler::addProcessWithMemory(const std::string& processName, int memoryS
     } else {
         // Memory allocation failed - process exists but can't be scheduled
         process->hasMemory = false;
-        std::cout << "[Scheduler] Process " << processName << " created but insufficient memory available (" 
-                  << memorySize << " bytes requested).\n";
+        /*std::cout << "[Scheduler] Process " << processName << " created but insufficient memory available (" 
+                  << memorySize << " bytes requested).\n";*/
     }
     
     // Add process to allProcesses regardless of memory allocation success
