@@ -52,23 +52,13 @@ void Scheduler::schedulerTest() {
         std::cout << "Please initialize the scheduler first.\n";
         return;
     }
-    
+    if (isRunning) return; // Already running
     isRunning = true;
     isGeneratingProcesses = true;
-    allProcessesFinishedMessageShown = false; // Reset flag when starting
+    allProcessesFinishedMessageShown = false;
     std::cout << "Scheduler started.\n";
-    
-    // COMMENTED OUT FOR NOW
-    // Immediately create 4 processes at startup 
-    // for (int i = 0; i < 4; ++i) {
-    //    std::string processName = "process" + std::to_string(i);
-    //    addProcess(processName);
-    //}
-
     std::thread schedulingThread(&Scheduler::schedulingLoop, this);
     schedulingThread.detach();
-
-    // Continue generating more processes as before
     std::thread processGenThread(&Scheduler::processGenerationLoop, this);
     processGenThread.detach();
 }
@@ -645,4 +635,17 @@ int Scheduler::getActiveCores() {
         }
     }
     return active;
+}
+
+void Scheduler::startSchedulerLoopOnly() {
+    if (!isInitialized) {
+        std::cout << "Please initialize the scheduler first.\n";
+        return;
+    }
+    if (isRunning) return; // Already running
+    isRunning = true;
+    allProcessesFinishedMessageShown = false;
+    std::cout << "Scheduler started (no dummy process generation).\n";
+    std::thread schedulingThread(&Scheduler::schedulingLoop, this);
+    schedulingThread.detach();
 }

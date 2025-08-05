@@ -86,6 +86,11 @@ public:
     // Methods to increment paging stats (called by MemoryManager)
     void incrementPagedIn() { numPagedIn++; }
     void incrementPagedOut() { numPagedOut++; }
+    
+    void startSchedulerLoopOnly(); // Add this line
+    
+    // Add this getter
+    bool isSchedulerRunning() const { return isRunning; }
 };
 
 #endif

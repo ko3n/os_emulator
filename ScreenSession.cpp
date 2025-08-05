@@ -307,7 +307,7 @@ void handleScreenCommand(const std::string& command) {
     else if (flag == "-c") {
         iss >> name;
         std::string memStr, instrStr;
-        int memorySize = 65536; // default to max
+        int memorySize = systemConfig.maxOverallMem; // default to max
 
         // Peek next token to see if it's a number (memory size) or start of instructions
         std::streampos pos = iss.tellg();
@@ -357,6 +357,10 @@ void handleScreenCommand(const std::string& command) {
         }
         // Create process with user instructions
         if (globalScheduler) {
+            // Start scheduler loop if not running (no dummy processes)
+            if (!globalScheduler->isSchedulerRunning()) {
+                globalScheduler->startSchedulerLoopOnly();
+            }
             globalScheduler->addProcessWithMemory(name, memorySize, instrs);
         }
         Process* newProcess = globalScheduler ? globalScheduler->getProcess(name) : nullptr;
