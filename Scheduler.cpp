@@ -611,13 +611,13 @@ void Scheduler::processSmi() {
 
     std::cout << "\n";
     std::cout << "CPU-Util: " << (int)cpuUtil << "%\n";
-    std::cout << "Memory Usage: " << usedMem / 1024 << "MiB / " << totalMem / 1024 << "MiB\n";
+    std::cout << "Memory Usage: " << usedMem / 1024 << "KiB / " << totalMem / 1024 << "KiB\n";
     std::cout << "Memory Util: " << (int)memUtil << "%\n";
     std::cout << "----------------------------------------\n";
     std::cout << "Running processes and memory usage:\n\n";
     for (const auto& proc : allProcesses) {
         if (!proc->isFinished && proc->hasMemory)
-            std::cout << proc->name << " " << proc->memRequired / 1024 << "MiB\n";
+            std::cout << proc->name << " " << proc->memRequired / 1024 << "KiB\n";
     }
     std::cout << "\n";
 }

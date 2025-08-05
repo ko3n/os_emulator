@@ -47,8 +47,6 @@ bool MemoryManager::allocateProcess(Process* process) {
     }
     
     process->hasMemory = true;
-    // std::cout << "[MemoryManager] Process " << process->name 
-    //           << " allocated page table with " << pagesNeeded << " pages (no pages loaded yet)\n";
     return true;
 }
 
@@ -70,8 +68,6 @@ void MemoryManager::deallocateProcess(Process* process) {
     // Remove page table
     pageTables.erase(process);
     process->hasMemory = false;
-    
-    // std::cout << "[MemoryManager] Process " << process->name << " deallocated\n";
 }
 
 bool MemoryManager::handlePageFault(Process* process, int virtualPageNumber) {
@@ -116,6 +112,23 @@ bool MemoryManager::handlePageFault(Process* process, int virtualPageNumber) {
     
     // std::cout << "[PAGE LOADED] Page " << virtualPageNumber << " of " << process->name 
     //           << " loaded into frame " << frameNumber << std::endl;
+    
+    // After loading the page and updating the page table:
+    for (auto& entry : pageTables) {
+        if (entry.first != process) {
+            bool anyValid = false;
+            for (const auto& page : entry.second) {
+                if (page.isValid) {
+                    anyValid = true;
+                    break;
+                }
+            }
+            if (!anyValid) {
+                entry.first->hasMemory = false;
+            }
+        }
+    }
+    process->hasMemory = true;
     
     return true;
 }
@@ -188,18 +201,27 @@ void MemoryManager::loadPageFromBackingStore(Process* process, int pageNumber, i
 
 void MemoryManager::evictPageToBackingStore(int frameNumber) {
     if (!frames[frameNumber].isOccupied) return;
-    
+
     Process* process = frames[frameNumber].owner;
     int pageNumber = frames[frameNumber].virtualPageNumber;
-    
-    // std::cout << "[DISK I/O] Evicting page " << pageNumber 
-    //           << " of " << process->name << " from frame " << frameNumber << std::endl;
-    
+
     // Mark page as invalid in page table
-    if (pageTables.find(process) != pageTables.end() && 
+    if (pageTables.find(process) != pageTables.end() &&
         pageNumber < pageTables[process].size()) {
         pageTables[process][pageNumber].isValid = false;
         pageTables[process][pageNumber].frameNumber = -1;
+    }
+
+    // Check if the process has any valid pages left in memory
+    bool anyValid = false;
+    for (const auto& entry : pageTables[process]) {
+        if (entry.isValid) {
+            anyValid = true;
+            break;
+        }
+    }
+    if (!anyValid) {
+        process->hasMemory = false;
     }
 }
 
