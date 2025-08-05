@@ -199,6 +199,10 @@ void handleScreenCommand(const std::string& command) {
         // Create process with specified memory size
         if (globalScheduler) {
             globalScheduler->addProcessWithMemory(name, memorySize);
+            // Start scheduler if not running, but do NOT start batch/dummy generation
+            if (!globalScheduler->getIsRunning()) {
+                globalScheduler->startSchedulingLoopOnly();
+            }
         }
         
         Process* newProcess = globalScheduler ? globalScheduler->getProcess(name) : nullptr;

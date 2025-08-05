@@ -88,6 +88,14 @@ public:
     void incrementPagedOut() { numPagedOut++; }
     
     void processSmi();
+    
+    void startIfNotRunning() {
+        if (!isRunning) {
+            schedulerTest();
+        }
+    }
+    
+    void startSchedulingLoopOnly();
 };
 
 #endif
