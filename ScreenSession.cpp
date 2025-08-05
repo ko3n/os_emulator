@@ -259,13 +259,16 @@ void handleScreenCommand(const std::string& command) {
         instrStr = instrStr.substr(instrStr.find_first_not_of(" \""));
         instrStr = instrStr.substr(0, instrStr.find_last_not_of("\"") + 1);
 
-        if (name.empty() || memStr.empty() || instrStr.empty()) {
+        if (name.empty() || instrStr.empty()) {
             std::cout << "\nUsage: screen -c <process_name> <memory_size> \"<instructions>\"\n";
             return;
         }
-        int memorySize;
-        try { memorySize = std::stoi(memStr); }
-        catch (...) { std::cout << "\nInvalid memory size format.\n"; return; }
+
+        int memorySize = 65536; // default to max
+        if (!memStr.empty()) {
+            try { memorySize = std::stoi(memStr); }
+            catch (...) { std::cout << "\nInvalid memory size format.\n"; return; }
+        }
         auto isPowerOf2 = [](int n) { return n > 0 && (n & (n - 1)) == 0; };
         if (!isPowerOf2(memorySize) || memorySize < 64 || memorySize > 65536) {
             std::cout << "\nInvalid memory allocation. Memory must be power of 2 between 64 and 65536 bytes.\n";
