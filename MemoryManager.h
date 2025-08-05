@@ -66,6 +66,11 @@ public:
     size_t getExternalFragmentation() const;
     int getNumProcessesInMemory() const;
     void printMemoryMap(std::ostream& out) const;
+
+    // Backing store functions for readable text file
+    void writePageToBackingStore(int pageNumber, const std::vector<char>& data);
+    std::vector<char> readPageFromBackingStore(int pageIndex, int pageSize);
+    void initializeBackingStore();
     
     // Process memory simulation
     void accessMemory(Process* process, int virtualAddress);

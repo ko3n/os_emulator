@@ -7,8 +7,6 @@
 #include "Config.h"
 #include "Scheduler.h"
 
-
-// Global variables
 bool isInitialized = false;
 Scheduler* globalScheduler = nullptr;
 
@@ -32,6 +30,7 @@ void printHeader() {
     std::cout << "\033[34m     'report-util' to generate CPU utilization report\033[0m\n";
     std::cout << "\033[34m     'process-smi' to provide a high-level overview of available/used memory\033[0m\n";
     std::cout << "\033[34m     'vmstat' to provide fine-grained memory details\033[0m\n";
+    // REMOVED: std::cout << "\033[34m     'backing-store-view' to visualize memory backing store\033[0m\n";
 }
 
 void clearScreen() {
@@ -53,8 +52,6 @@ void initialize() {
         std::cout << "- memPerFrame: " << systemConfig.memPerFrame << "\n";
         std::cout << "- minMemPerProc: " << systemConfig.minMemPerProc << "\n";
         std::cout << "- maxMemPerProc: " << systemConfig.maxMemPerProc << "\n\n";
-        
-        // Initialize the scheduler
         if (globalScheduler) delete globalScheduler;
         globalScheduler = new Scheduler();
         if (globalScheduler->initialize()) {
@@ -96,15 +93,11 @@ void vmstat() {
         std::cout << "Please run 'initialize' command first.\n";
         return;
     }
-    
     auto& memManager = globalScheduler->getMemoryManager();
     auto& scheduler = *globalScheduler;
-    
-    // Memory information (in bytes as specified)
     int totalMemory = systemConfig.maxOverallMem;
     int usedMemory = memManager.getUsedFrames() * systemConfig.memPerFrame;
     int freeMemory = totalMemory - usedMemory;
-    
     std::cout << std::setw(12) << totalMemory << " K total memory\n";
     std::cout << std::setw(12) << usedMemory << " K used memory\n";
     std::cout << std::setw(12) << freeMemory << " K free memory\n";
@@ -118,11 +111,9 @@ void vmstat() {
 int main() {
     std::string userInput;
     printHeader();
-
     while (true) {
         std::cout << "\n>";
         std::getline(std::cin, userInput);
-
         if (userInput == "initialize") {
             std::cout << "\n";
             initialize();
@@ -170,6 +161,5 @@ int main() {
             std::cout << "Unknown command. Please try again\n";
         }
     }
-
     return 0;
 }
