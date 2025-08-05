@@ -191,94 +191,44 @@ int MemoryManager::selectVictimFrame() {
 void MemoryManager::initializeBackingStore() {
     std::filesystem::path path(BACKING_STORE_FILENAME);
     int totalPages = totalMemory / frameSize;
-    int expectedLen = totalPages * frameSize * 3; // Each entry "NUL" or "HEXx" is 3 chars
+    int totalBytes = totalPages * frameSize;
     bool needInit = false;
     if (!std::filesystem::exists(path)) {
         needInit = true;
     } else {
-        std::ifstream ifs(BACKING_STORE_FILENAME);
-        std::string content;
-        std::getline(ifs, content);
-        ifs.close();
-        if ((int)content.length() < expectedLen) {
+        std::ifstream ifs(BACKING_STORE_FILENAME, std::ios::binary | std::ios::ate);
+        if (ifs.tellg() < totalBytes) {
             needInit = true;
         }
+        ifs.close();
     }
     if (needInit) {
-        std::ofstream ofs(BACKING_STORE_FILENAME, std::ios::trunc);
-        for (int i = 0; i < totalPages * frameSize; ++i) {
-            ofs << "NUL";
-        }
+        std::ofstream ofs(BACKING_STORE_FILENAME, std::ios::binary | std::ios::trunc);
+        std::vector<char> zeros(totalBytes, 0);
+        ofs.write(zeros.data(), zeros.size());
         ofs.close();
     }
 }
 
 // Write the frame's bytes as "HEXx" or "NUL" for zero
 void MemoryManager::writePageToBackingStore(int pageNumber, const std::vector<char>& data) {
-    // Read the current file content
-    std::ifstream ifs(BACKING_STORE_FILENAME);
-    std::string backingContent;
-    if (ifs.is_open()) {
-        std::getline(ifs, backingContent);
-        ifs.close();
-    }
-
-    int totalPages = totalMemory / frameSize;
-    int expectedLen = totalPages * frameSize * 3;
-    if (backingContent.length() < expectedLen) {
-        backingContent.resize(expectedLen, 'N'); // pad with NUL
-        for (size_t i = 0; i < backingContent.length(); i += 3) {
-            backingContent[i] = 'N';
-            backingContent[i+1] = 'U';
-            backingContent[i+2] = 'L';
-        }
-    }
-
-    // Overwrite the correct page
-    int offset = pageNumber * frameSize * 3;
-    for (int i = 0; i < frameSize; ++i) {
-        int idx = offset + i * 3;
-        unsigned char val = static_cast<unsigned char>(data[i]);
-        if (val == 0) {
-            backingContent[idx] = 'N';
-            backingContent[idx+1] = 'U';
-            backingContent[idx+2] = 'L';
-        } else {
-            std::stringstream ss;
-            ss << std::uppercase << std::hex << std::setw(2) << std::setfill('0') << (int)val;
-            backingContent[idx] = ss.str()[0];
-            backingContent[idx+1] = ss.str()[1];
-            backingContent[idx+2] = 'x';
-        }
-    }
-
-    std::ofstream ofs(BACKING_STORE_FILENAME, std::ios::trunc);
-    ofs << backingContent;
-    ofs.close();
+    std::fstream fs(BACKING_STORE_FILENAME, std::ios::in | std::ios::out | std::ios::binary);
+    if (!fs.is_open()) return;
+    int offset = pageNumber * frameSize;
+    fs.seekp(offset, std::ios::beg);
+    fs.write(data.data(), frameSize);
+    fs.close();
 }
 
 // Read a page from the backing store file, interpreting "NUL" or "HEXx"
 std::vector<char> MemoryManager::readPageFromBackingStore(int pageIndex, int pageSize) {
-    std::ifstream ifs(BACKING_STORE_FILENAME);
-    std::string backingContent;
+    std::ifstream ifs(BACKING_STORE_FILENAME, std::ios::binary);
     std::vector<char> buffer(pageSize, 0);
     if (!ifs.is_open()) return buffer;
-    std::getline(ifs, backingContent);
+    int offset = pageIndex * pageSize;
+    ifs.seekg(offset, std::ios::beg);
+    ifs.read(buffer.data(), pageSize);
     ifs.close();
-    int offset = pageIndex * pageSize * 3;
-    for (int i = 0; i < pageSize; ++i) {
-        int idx = offset + i * 3;
-        if (idx + 2 < (int)backingContent.length()) {
-            if (backingContent[idx] == 'N' && backingContent[idx+1] == 'U' && backingContent[idx+2] == 'L') {
-                buffer[i] = 0;
-            } else {
-                std::string hexStr;
-                hexStr += backingContent[idx];
-                hexStr += backingContent[idx+1];
-                buffer[i] = (char)std::stoi(hexStr, nullptr, 16);
-            }
-        }
-    }
     return buffer;
 }
 
