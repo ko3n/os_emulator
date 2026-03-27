@@ -11,6 +11,11 @@ struct Config {
     int minInstructions;
     int maxInstructions;
     int delayPerExec;
+    // MO2 Parameters
+    int maxOverallMem;
+    int memPerFrame;
+    int minMemPerProc;
+    int maxMemPerProc;
 };
 
 extern Config systemConfig;
